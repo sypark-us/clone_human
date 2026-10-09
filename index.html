@@ -99,6 +99,10 @@ body{height:100dvh;overflow:hidden;padding:4px}
 }
 #viewtoggle{display:none}@media(max-width:760px){#viewtoggle{display:block;position:absolute;right:4px;top:2px;padding:5px 8px;z-index:20;font-size:12px}.show-battle .dash-main{display:none}.show-battle .dash-side{display:flex;height:100%;overflow:auto}.show-battle .dash-side>.dash-panel{max-height:none;overflow:visible}} 
 /* v11: visually scannable compact cards */
+.dash-main>.dash-panel:nth-child(2){max-height:145px!important;overflow:visible!important}
+.dash-main>.reward-panel{max-height:160px!important;overflow:visible!important}
+.dash-side>.dash-panel:first-child{max-height:none!important;overflow:visible!important}
+
 #routes{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;margin:0!important}
 .route-card{display:flex;flex-direction:column;text-align:left;align-items:flex-start;gap:3px;margin:0!important;padding:9px!important;min-height:92px!important;border:1px solid #567ba1;background:#21344d;min-width:0}
 .route-card:hover{border-color:#83d4fa;background:#2a4966}
