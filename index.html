@@ -1,64 +1,12 @@
-<!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CLONE HUMAN — 복제인간 전투 공장</title>
-<style>
-:root{font-family:system-ui,'Malgun Gothic',sans-serif;color:#e9eefc;background:#101521}*{box-sizing:border-box}body{margin:0}main{max-width:1080px;margin:auto;padding:24px}h1{margin:0;font-size:30px}h2{font-size:19px}.muted{color:#aab7cf}.stats,.layout,.slots,.shop{display:grid;gap:12px}.stats{grid-template-columns:repeat(4,1fr);margin:20px 0}.layout{grid-template-columns:1.3fr 1fr}.slots{grid-template-columns:repeat(3,1fr)}.shop{grid-template-columns:repeat(3,1fr)}.panel,.stat,.slot,.offer{background:#1a2335;border:1px solid #344158;border-radius:12px;padding:14px}.stat strong{display:block;font-size:25px}.slot{min-height:114px;text-align:left;cursor:pointer;color:inherit}.slot.selected{outline:2px solid #77c8ff}.slot .emoji{font-size:25px}.slot small,.offer small{display:block;color:#b6c3db;margin-top:5px}button{font:inherit}button.action,.offer{cursor:pointer;color:#fff}.action{background:#426ce2;border:0;border-radius:9px;padding:12px 18px;margin:8px 8px 8px 0}.action:disabled{opacity:.45;cursor:not-allowed}.offer{min-height:100px;text-align:left}.offer:hover,.slot:hover{border-color:#7bbfff}.hp{height:16px;border-radius:20px;background:#3a2634;overflow:hidden}.hp>div{height:100%;background:#f26a79;transition:width .2s}.log{height:210px;overflow:auto;background:#101827;border-radius:8px;padding:10px;font-size:13px;line-height:1.65}.log div{border-bottom:1px solid #283246;padding:3px}.tag{display:inline-block;background:#29405b;padding:3px 8px;border-radius:6px;margin:3px}.hidden{display:none!important}#message{font-weight:700;color:#8fe6c0}@media(max-width:750px){.layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.shop{grid-template-columns:1fr}.slots{grid-template-columns:repeat(3,1fr)}main{padding:12px}}
-</style></head><body><main>
-<header><h1>🧬 CLONE HUMAN</h1><p class="muted">복제인간 전투 공장 · 자동 생산 엔진 로그라이크</p></header>
-<section class="stats"><div class="stat">웨이브<strong id="wave">1 / 8</strong></div><div class="stat">에너지<strong id="energy">0</strong></div><div class="stat">복제인간<strong id="units">0</strong></div><div class="stat">총 피해<strong id="damage">0</strong></div></section>
-<div class="layout"><section class="panel"><h2>🏭 생산 라인</h2><p class="muted">슬롯을 클릭해 선택한 뒤, 보상 모듈을 배치하거나 교체하세요. 동일 모듈을 여러 개 배치할 수 있습니다.</p><div class="slots" id="slots"></div><p class="muted" id="selected">선택 슬롯: 1</p><h2>🎁 다음 모듈 선택</h2><div class="shop" id="shop"></div><p id="message"></p><button class="action" id="start">▶ 웨이브 시작</button><button class="action" id="reset">↻ 새 게임</button><p class="muted">전투는 자동으로 진행됩니다. 생산 라인 순서가 중요합니다. 한 웨이브는 12턴이며, 매 웨이브 시작 전 보상 1개를 고릅니다.</p></section>
-<section class="panel"><h2>⚔️ 자동 전투</h2><p id="enemy"></p><div class="hp"><div id="hp"></div></div><p id="combat"></p><h2>📜 전투 기록</h2><div class="log" id="log" aria-live="polite"></div><h2>🔗 현재 엔진</h2><div id="synergy"></div></section></div>
-</main><script>
-'use strict';
-const TYPES={
-miner:{name:'채굴자',icon:'⛏️',desc:'매 턴 에너지 +3'},
-clone:{name:'복제기',icon:'🧬',desc:'에너지 4 소비 → 병사 2명 생산'},
-soldier:{name:'훈련소',icon:'🛡️',desc:'에너지 3 소비 → 병사 1명 생산'},
-booster:{name:'증폭기',icon:'⚡',desc:'바로 앞 슬롯의 생산 행동을 추가 실행'},
-bomb:{name:'자폭 장치',icon:'💣',desc:'매 턴 병사 최대 2명 소비, 1명당 피해 12'},
-recycle:{name:'회수기',icon:'♻️',desc:'적에게 피해를 줄 때마다 에너지 +2 (턴당 최대 10)'},
-echo:{name:'시간 복제',icon:'⏳',desc:'바로 앞 슬롯의 행동을 2회 추가 실행'},
-mutant:{name:'변이 연구소',icon:'🧪',desc:'에너지 5 소비 → 병사 2명 및 공격력 +1'},
-revive:{name:'부활 장치',icon:'💚',desc:'자폭으로 소비된 병사의 절반을 되살림(올림)'}
-};
-const $=id=>document.getElementById(id);
-let s, timer=null;
-function fresh(){if(timer)clearInterval(timer);timer=null;s={wave:1,energy:8,units:2,attack:2,total:0,slots:['miner','clone','soldier',null,null,null],selected:3,offers:[],mustPick:true,playing:false,turn:0,enemyHP:0,maxHP:0,bombed:0,finished:false};roll();$('log').innerHTML='';log('공장이 가동 준비되었습니다. 보상 모듈을 먼저 선택하세요.');render();}
-function log(t){const d=document.createElement('div');d.textContent=t;$('log').prepend(d);while($('log').children.length>90)$('log').lastChild.remove();}
-function roll(){const pool=Object.keys(TYPES);s.offers=[];while(s.offers.length<3){const k=pool[Math.floor(Math.random()*pool.length)];if(!s.offers.includes(k))s.offers.push(k)}}
-function selectSlot(i){if(s.playing||s.finished)return;s.selected=i;render();}
-function pick(k){if(s.playing||!s.mustPick||s.finished)return;s.slots[s.selected]=k;s.mustPick=false;log('슬롯 '+(s.selected+1)+'에 '+TYPES[k].name+' 배치');render();}
-function hurt(n){if(n<=0)return;s.enemyHP=Math.max(0,s.enemyHP-n);s.total+=n;s.roundDamage+=n;if(s.slots.includes('recycle')){const count=s.slots.filter(x=>x==='recycle').length;const gain=Math.min(10-s.recycled,2*count);if(gain>0){s.energy+=gain;s.recycled+=gain}}}
-function act(type,depth=0){if(depth>5)return;switch(type){
-case 'miner':s.energy+=3;break;
-case 'clone':if(s.energy>=4){s.energy-=4;s.units+=2;}break;
-case 'soldier':if(s.energy>=3){s.energy-=3;s.units++;}break;
-case 'mutant':if(s.energy>=5){s.energy-=5;s.units+=2;s.attack++;}break;
-case 'bomb':{const n=Math.min(2,s.units);s.units-=n;s.bombed+=n;hurt(n*12);break;}
-case 'revive':{const n=Math.ceil(s.bombed/2);s.units+=n;s.bombed=0;break;}
-case 'recycle':break;
-}}
-function tick(){if(!s.playing)return;s.turn++;s.roundDamage=0;s.recycled=0;s.bombed=0;
-for(let i=0;i<6;i++){const t=s.slots[i];if(t==='booster'||t==='echo'){const prev=s.slots[i-1];if(prev&&prev!=='booster'&&prev!=='echo')for(let j=0;j<(t==='echo'?2:1);j++)act(prev);}else if(t)act(t);}
-hurt(s.units*s.attack);
-const retaliation=Math.min(s.units,Math.floor((s.wave+1)/3)+(s.turn%3===0?1:0));s.units-=retaliation;
-log('턴 '+s.turn+': 피해 '+s.roundDamage+' · 병사 '+s.units+' · 에너지 '+s.energy);
-if(s.enemyHP<=0){finish(true);}else if(s.turn>=12||s.units===0&&s.energy<3&&!s.slots.includes('miner')){finish(false);}else render();}
-function finish(win){clearInterval(timer);timer=null;s.playing=false;if(!win){s.finished=true;log('패배! 웨이브 '+s.wave+'에서 공장이 정지했습니다.');}else if(s.wave>=8){s.finished=true;log('승리! 모든 웨이브를 클리어했습니다!');}else{s.wave++;s.energy+=5;s.units+=2;s.mustPick=true;roll();log('웨이브 클리어! 에너지 +5, 병사 +2. 다음 모듈을 선택하세요.');}render();}
-function start(){if(s.playing||s.finished||s.mustPick)return;s.playing=true;s.turn=0;s.maxHP=35+s.wave*s.wave*20;s.enemyHP=s.maxHP;log('웨이브 '+s.wave+' 시작!');render();timer=setInterval(tick,380);}
-function render(){
-$('wave').textContent=s.wave+' / 8';$('energy').textContent=s.energy;$('units').textContent=s.units;$('damage').textContent=s.total;
-$('slots').innerHTML=s.slots.map((t,i)=>'<button class="slot '+(s.selected===i?'selected':'')+'" data-i="'+i+'"><div>슬롯 '+(i+1)+'</div><div class="emoji">'+(t?TYPES[t].icon:'➕')+'</div><b>'+(t?TYPES[t].name:'빈 슬롯')+'</b><small>'+(t?TYPES[t].desc:'모듈 배치 가능')+'</small></button>').join('');
-document.querySelectorAll('.slot').forEach(el=>el.onclick=()=>selectSlot(Number(el.dataset.i)));
-$('selected').textContent='선택 슬롯: '+(s.selected+1);
-$('shop').innerHTML=s.mustPick&&!s.finished?s.offers.map(t=>'<button class="offer" data-k="'+t+'"><b>'+TYPES[t].icon+' '+TYPES[t].name+'</b><small>'+TYPES[t].desc+'</small></button>').join(''):'<p class="muted">보상 선택 완료</p>';
-document.querySelectorAll('.offer').forEach(el=>el.onclick=()=>pick(el.dataset.k));
-$('start').disabled=s.playing||s.finished||s.mustPick;
-$('start').textContent=s.playing?'전투 진행 중…':s.mustPick?'모듈을 선택하세요':'▶ 웨이브 시작';
-$('message').textContent=s.finished?(s.enemyHP<=0?'🏆 최종 승리!':'💀 게임 오버'):(s.mustPick?'보상 1개를 선택해 생산 라인에 배치하세요.':s.playing?'자동 전투 중…':'준비 완료! 웨이브를 시작하세요.');
-$('enemy').textContent=s.playing?'적 코어 체력 '+s.enemyHP+' / '+s.maxHP:s.finished?'최종 결과': '다음 적: 웨이브 '+s.wave;
-$('hp').style.width=(s.playing?100*s.enemyHP/s.maxHP:0)+'%';
-$('combat').textContent=s.playing?'진행 턴 '+s.turn+' / 12 · 병사 공격력 '+s.attack:'병사 공격력 '+s.attack;
-const a=[];if(s.slots.includes('clone')&&s.slots.includes('miner'))a.push('⛏️ 에너지 → 🧬 복제 생산');if(s.slots.includes('bomb')&&s.slots.includes('revive'))a.push('💣 자폭 → 💚 부활');if(s.slots.includes('recycle')&&s.slots.includes('bomb'))a.push('💣 폭발 → ♻️ 에너지 회수');if(s.slots.includes('mutant'))a.push('🧪 병사와 공격력 동시 성장');if(s.slots.includes('echo')||s.slots.includes('booster'))a.push('⏳ 앞 슬롯 행동 추가 발동');$('synergy').innerHTML=a.length?a.map(x=>'<span class="tag">'+x+'</span>').join(''):'<span class="muted">모듈을 조합해 시너지를 발견하세요.</span>';
-}
-$('start').onclick=start;$('reset').onclick=fresh;fresh();
-</script></body></html>
+<!doctype html><html lang="ko"><meta charset="utf-8"><title>Clone Human v2</title><style>body{background:#111827;color:#eee;font:16px system-ui;max-width:900px;margin:30px auto}button{padding:12px;background:#263953;color:white;border:1px solid #678;cursor:pointer;border-radius:8px;margin:3px}.selected{border:3px solid #6cf}#slots{display:grid;grid-template-columns:repeat(4,1fr)}#log{height:200px;overflow:auto;background:#223;padding:12px}</style><h1>🧬 CLONE HUMAN v2</h1><p>생산 순서와 이벤트 연쇄 반응으로 적 코어를 격파하세요.</p><h2 id="stats"></h2><div id="slots"></div><button onclick="move(-1)">◀ 왼쪽</button><button onclick="move(1)">오른쪽 ▶</button><button id="start" onclick="start()">전투 시작</button><button onclick="init()">새 게임</button><h3>보상 모듈</h3><div id="offers"></div><h3 id="enemy"></h3><p id="state"></p><h3>모듈 발동 횟수</h3><div id="counts"></div><h3>전투 기록</h3><div id="log"></div><script>
+const M={mine:['⛏️ 채굴','에너지 +4'],clone:['🧬 복제','에너지 4 → 병사 2'],soldier:['🛡️ 훈련','에너지 3 → 병사 1'],echo:['⏳ 시간 복제','직전 모듈 2회 추가'],boost:['⚡ 증폭','직전 모듈 1회 추가'],bomb:['💣 자폭','병사 2명 소비, 피해 28'],recycle:['♻️ 회수','피해마다 에너지 +2'],mutation:['🧪 변이','에너지 5 → 공격력 +2'],onclone:['🔁 복제 반응','복제 시 추가 공격'],onkill:['💎 처치 회수','처치 시 에너지 +8'],autoclone:['🏭 자동 복제','처치 시 병사 2명'],revive:['💚 재생','자폭 시 병사 1명 복귀']};const $=id=>document.getElementById(id);let s,timer;
+function log(x){$('log').textContent=x+'\n'+$('log').textContent}function roll(){s.offers=[];let keys=Object.keys(M);while(s.offers.length<3){let k=keys[Math.floor(Math.random()*keys.length)];if(!s.offers.includes(k))s.offers.push(k)}}
+function init(){clearInterval(timer);s={wave:1,energy:8,units:2,attack:2,total:0,slots:['mine','clone','soldier',null,null,null,null,null],selected:3,pick:true,playing:false,done:false,turn:0,hp:1,max:1,counts:{},queue:[],processed:0};roll();$('log').textContent='';render()}
+function choose(i){if(!s.playing){s.selected=i;render()}}function move(d){if(s.playing)return;let j=s.selected+d;if(j<0||j>=8)return;[s.slots[j],s.slots[s.selected]]=[s.slots[s.selected],s.slots[j]];s.selected=j;render()}
+function pick(k){if(!s.pick||s.playing)return;s.slots[s.selected]=k;s.pick=false;render()}function event(kind,n=1){if(s.queue.length+s.processed<150)s.queue.push({kind,n})}
+function act(k,i){if(!k)return;s.counts[k]=(s.counts[k]||0)+1;if(k==='mine')s.energy+=4;if(k==='clone'&&s.energy>=4){s.energy-=4;s.units+=2;event('clone',2)}if(k==='soldier'&&s.energy>=3){s.energy-=3;s.units++;event('clone',1)}if(k==='mutation'&&s.energy>=5){s.energy-=5;s.attack+=2}if(k==='bomb'){let n=Math.min(2,s.units);s.units-=n;if(n){event('damage',14*n);event('bomb',n)}}if((k==='echo'||k==='boost')&&i>0){let p=s.slots[i-1];if(p&&p!=='echo'&&p!=='boost')for(let j=0;j<(k==='echo'?2:1);j++)act(p,i-1)}}
+function flush(){while(s.queue.length&&s.processed<150){let e=s.queue.shift();s.processed++;if(e.kind==='clone')for(let k of s.slots)if(k==='onclone'){s.counts[k]=(s.counts[k]||0)+1;event('damage',e.n*s.attack)}if(e.kind==='bomb')for(let k of s.slots)if(k==='revive'){s.counts[k]=(s.counts[k]||0)+1;s.units++}if(e.kind==='damage'){let dealt=Math.min(s.hp,e.n);s.hp-=dealt;s.total+=dealt;for(let k of s.slots)if(k==='recycle'){s.counts[k]=(s.counts[k]||0)+1;s.energy+=2}if(s.hp===0&&dealt>0)event('kill')}if(e.kind==='kill')for(let k of s.slots){if(k==='onkill'){s.counts[k]=(s.counts[k]||0)+1;s.energy+=8}if(k==='autoclone'){s.counts[k]=(s.counts[k]||0)+1;s.units+=2;event('clone',2)}}}s.queue=[]}
+function tick(){s.turn++;s.queue=[];s.processed=0;s.counts={};let hp=s.hp;for(let i=0;i<8;i++){act(s.slots[i],i);flush()}event('damage',s.units*s.attack);flush();s.units=Math.max(0,s.units-Math.floor(s.wave/2)-1);log('턴 '+s.turn+': 피해 '+(hp-s.hp)+' · 병사 '+s.units+' · 에너지 '+s.energy+' · 이벤트 '+s.processed);if(!s.hp)return end(true);if(s.turn>=12)return end(false);render()}
+function end(win){clearInterval(timer);s.playing=false;if(!win||s.wave===8){s.done=true;log(win?'🏆 최종 승리!':'💀 패배')}else{s.wave++;s.energy+=6;s.units+=2;s.pick=true;roll();log('웨이브 클리어! 보상을 선택하세요.')}render()}
+function start(){if(s.pick||s.playing||s.done)return;s.max=35+20*s.wave*s.wave;s.hp=s.max;s.turn=0;s.playing=true;timer=setInterval(tick,450);render()}
+function render(){$('stats').textContent='웨이브 '+s.wave+'/8 | 에너지 '+s.energy+' | 병사 '+s.units+' | 공격력 '+s.attack+' | 총 피해 '+s.total;$('slots').innerHTML=s.slots.map((k,i)=>'<button class="'+(i===s.selected?'selected':'')+'" onclick="choose('+i+')">'+(i+1)+'. '+(k?M[k][0]:'➕ 빈 슬롯')+'<small style="display:block">'+(k?M[k][1]:'보상 배치')+'</small></button>').join('');$('offers').innerHTML=s.pick&&!s.done?s.offers.map(k=>'<button onclick="pick(\''+k+'\')">'+M[k][0]+'<small style="display:block">'+M[k][1]+'</small></button>').join(''):'선택 완료';$('enemy').textContent=s.playing?'적 코어 HP '+s.hp+'/'+s.max:'다음 적: 웨이브 '+s.wave;$('state').textContent=s.done?(s.hp===0?'승리!':'게임 오버'):s.playing?'전투 진행 중':s.pick?'모듈을 선택하세요':'전투 준비 완료';$('counts').textContent=Object.entries(s.counts).map(([k,n])=>M[k][0]+' ×'+n).join(' | ')||'전투 후 표시';$('start').disabled=s.pick||s.playing||s.done}init();</script></html>
