@@ -158,6 +158,85 @@
   function armyMultiplier(state) {
     return state.slots.reduce((value, id, slot) => PRODUCERS.includes(id) ? Math.max(value, bonus(state, 'attack', slot)) : value, 1);
   }
+  function synergyKind(state, from, to) {
+    if (!state || !Array.isArray(state.slots) || !integer(from, 0, 7) || !integer(to, 0, 7) || from === to) return null;
+    const source = state.slots[from], target = state.slots[to];
+    if (source === 'mine' && ['clone', 'soldier', 'mutation'].includes(target)) return 'energy';
+    if (source === 'mutation' && PRODUCERS.includes(target)) return 'clone';
+    if (PRODUCERS.includes(source) && target === 'bomb') return 'attack';
+    return null;
+  }
+  function adjacent(state, from, to) {
+    const a = state.positions[from], b = state.positions[to];
+    return Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1;
+  }
+  function connectors(state) {
+    return state && state.version === 2 && Array.isArray(state.connectors) ? state.connectors : [];
+  }
+  function getSynergies(state) {
+    if (!state || !Array.isArray(state.slots) || !Array.isArray(state.positions)) return [];
+    const edges = [];
+    for (let from = 0; from < 8; from++) for (let to = 0; to < 8; to++) {
+      const kind = synergyKind(state, from, to);
+      if (kind && adjacent(state, from, to)) edges.push({ from, to, kind, via: 'adjacent' });
+    }
+    for (const link of connectors(state)) {
+      const kind = synergyKind(state, link.from, link.to);
+      if (kind && !edges.some(edge => edge.from === link.from && edge.to === link.to)) edges.push({ from: link.from, to: link.to, kind, via: 'connector' });
+    }
+    return edges;
+  }
+  function getSynergyBonus(state, slot) {
+    const result = { costReduction: 0, clones: 0, damageMultiplier: 1 };
+    if (!integer(slot, 0, 7)) return result;
+    // Different sources can feed the same target, but each effect applies once.
+    for (const edge of getSynergies(state)) if (edge.to === slot) {
+      if (edge.kind === 'energy') result.costReduction = 1;
+      else if (edge.kind === 'clone') result.clones = 1;
+      else if (edge.kind === 'attack') result.damageMultiplier = 1.2;
+    }
+    return result;
+  }
+  function canConnectSlots(state, from, to) {
+    return preparing(state) && [1, 2].includes(state.version) && !!synergyKind(state, from, to) &&
+      !adjacent(state, from, to) && connectors(state).length < 2 &&
+      !connectors(state).some(link => link.from === from && link.to === to);
+  }
+  function connectSlots(state, from, to) {
+    if (!canConnectSlots(state, from, to)) return state;
+    // Ordinary actions preserve v1 saves. Their first manual connector is the
+    // only action that needs the new field and therefore performs migration.
+    if (state.version === 1) { state.version = 2; state.connectors = []; }
+    state.connectors.push({ from, to });
+    return state;
+  }
+  function disconnectSlots(state, from, to) {
+    if (!preparing(state) || state.version !== 2 || !integer(from, 0, 7) || !integer(to, 0, 7)) return state;
+    const index = state.connectors.findIndex(link => link.from === from && link.to === to);
+    if (index >= 0) state.connectors.splice(index, 1);
+    return state;
+  }
+  function pruneConnectors(state) {
+    if (state.version === 2) state.connectors = state.connectors.filter(link => synergyKind(state, link.from, link.to));
+  }
+  function getTurnSummary(state) {
+    const summary = { damage: 0, shieldDamage: 0, clonesLost: 0 };
+    if (!state || !Array.isArray(state.lastTurn)) return summary;
+    for (const event of state.lastTurn.slice(0, TURN_LOG_LIMIT)) {
+      if (!event || typeof event.text !== 'string' || event.text.length > 500) continue;
+      if (event.kind === 'damage') {
+        const match = /^피해 (0|[1-9][0-9]{0,5})(?: · 방어막 (0|[1-9][0-9]{0,5}))?$/.exec(event.text);
+        if (match && match[0] === event.text) {
+          summary.damage = Math.min(MAX_RESOURCE, summary.damage + Number(match[1]));
+          summary.shieldDamage = Math.min(MAX_RESOURCE, summary.shieldDamage + Number(match[2] || 0));
+        }
+      } else if (event.kind === 'loss') {
+        const match = /^적 반격: 병사 -(0|[1-9][0-9]{0,5})$/.exec(event.text);
+        if (match && match[0] === event.text) summary.clonesLost = Math.min(MAX_UNITS, summary.clonesLost + Number(match[1]));
+      }
+    }
+    return summary;
+  }
   function getBattlePreview(state) {
     const maxHp = Math.round(WAVE_HP[state.wave - 1] * (state.enemyId === 'swarm' ? 0.75 : 1));
     const defense = state.slots.reduce((value, id, slot) => value + (DEFENDERS.includes(id) ? bonus(state, 'defense', slot) : 0), 0);
@@ -183,7 +262,7 @@
     const seed = normalizeSeed(options.seed);
     const loadout = LOADOUTS.find(item => item.id === options.loadout) || LOADOUTS[0];
     const state = {
-      version: 1, seed, rngState: seed, loadoutId: loadout.id, phase: 'prepare', wave: 1,
+      version: 2, seed, rngState: seed, loadoutId: loadout.id, phase: 'prepare', wave: 1, connectors: [],
       energy: loadout.energy, units: loadout.units, attack: loadout.attack,
       slots: [...loadout.slots, ...Array(8).fill(null)].slice(0, 8),
       positions: [{ x: 1, y: 2 }, { x: 5, y: 2 }, { x: 9, y: 2 }, { x: 10, y: 4 }, { x: 6, y: 4 }, { x: 2, y: 4 }, { x: 2, y: 5 }, { x: 6, y: 5 }],
@@ -203,6 +282,7 @@
   function installModule(state, id) {
     if (!preparing(state) || !state.needsReward || !own(MODULES, id) || !state.offers.includes(id)) return state;
     state.slots[state.selectedSlot] = id;
+    pruneConnectors(state);
     state.needsReward = false;
     log(state, (state.selectedSlot + 1) + '번 슬롯에 ' + MODULES[id].name + ' 설치.');
     return state;
@@ -212,6 +292,7 @@
     const next = state.selectedSlot + direction;
     if (!integer(next, 0, 7)) return state;
     [state.slots[next], state.slots[state.selectedSlot]] = [state.slots[state.selectedSlot], state.slots[next]];
+    pruneConnectors(state);
     state.selectedSlot = next;
     return state;
   }
@@ -270,6 +351,7 @@
     state.turn++;
     state.lastTurn = [];
     const hpBefore = state.hp;
+    const synergies = state.slots.map((_, slot) => getSynergyBonus(state, slot));
     let processed = 0;
     const queue = [];
     function enqueue(kind, amount, source, slot) {
@@ -337,20 +419,21 @@
       if (id === 'mine') {
         activate(id, slot); gainEnergy(state, 4 + bonus(state, 'mine', slot), id);
       } else if (id === 'clone' || id === 'soldier') {
-        const cost = (id === 'clone' ? 4 : 3) + (state.enemyId === 'jam' ? 2 : 0);
+        const cost = (id === 'clone' ? 4 : 3) + (state.enemyId === 'jam' ? 2 : 0) - synergies[slot].costReduction;
         if (state.energy < cost) { note(state, slot, 'idle', '에너지 부족: ' + cost + ' 필요'); return; }
         activate(id, slot); state.energy -= cost;
-        const amount = gainUnits(state, id === 'clone' ? 2 + bonus(state, 'clone', slot) : 1, id);
+        const amount = gainUnits(state, (id === 'clone' ? 2 + bonus(state, 'clone', slot) : 1) + synergies[slot].clones, id);
         if (amount) enqueue('clone', amount, id, slot);
       } else if (id === 'mutation') {
-        if (state.energy < 5) { note(state, slot, 'idle', '에너지 부족: 5 필요'); return; }
-        activate(id, slot); state.energy -= 5;
+        const cost = 5 - synergies[slot].costReduction;
+        if (state.energy < cost) { note(state, slot, 'idle', '에너지 부족: ' + cost + ' 필요'); return; }
+        activate(id, slot); state.energy -= cost;
         state.attack = Math.min(MAX_ATTACK, state.attack + 2 + bonus(state, 'mutation', slot));
       } else if (id === 'bomb' && state.units > 0) {
         activate(id, slot);
         const used = Math.min(2, state.units);
         state.units -= used;
-        damage(Math.round(14 * used * (state.enemyId === 'armor' ? 0.4 : 1) * (bonus(state, 'bomb', slot) || 1) * (bonus(state, 'attack', slot) || 1)), id, slot);
+        damage(Math.round(14 * used * (state.enemyId === 'armor' ? 0.4 : 1) * (bonus(state, 'bomb', slot) || 1) * (bonus(state, 'attack', slot) || 1) * synergies[slot].damageMultiplier), id, slot);
         enqueue('bomb', used, id, slot);
       }
     }
@@ -426,13 +509,19 @@
     // No coercion: saves are untrusted data and never run through combat until this schema succeeds.
     try {
       const stateKeys = ['version', 'seed', 'rngState', 'loadoutId', 'phase', 'wave', 'energy', 'units', 'attack', 'slots', 'positions', 'selectedSlot', 'needsReward', 'offers', 'routes', 'routePending', 'sectorId', 'objectiveId', 'enemyId', 'upgrades', 'turn', 'hp', 'maxHp', 'shield', 'enemyAttack', 'metrics', 'totalDamage', 'eventsTotal', 'chainPeak', 'log', 'lastTurn', 'report'];
-      if (!keys(value, stateKeys) || value.version !== 1) return false;
+      if (!record(value) || ![1, 2].includes(value.version)) return false;
+      if (!keys(value, value.version === 2 ? [...stateKeys, 'connectors'] : stateKeys)) return false;
       if (!integer(value.seed, 1, 4294967295) || !integer(value.rngState, 1, 4294967295)) return false;
       if (!LOADOUTS.some(loadout => loadout.id === value.loadoutId) || !['prepare', 'battle', 'report', 'won', 'lost'].includes(value.phase)) return false;
       if (!integer(value.wave, 1, 8) || !integer(value.energy, 0, MAX_RESOURCE) || !integer(value.units, 0, MAX_UNITS) || !integer(value.attack, 1, MAX_ATTACK)) return false;
       if (!denseArray(value.slots, 8) || !value.slots.every(id => id === null || validId(MODULES, id))) return false;
       if (!denseArray(value.positions, 8) || !value.positions.every(position => keys(position, ['x', 'y']) && integer(position.x, 0, 11) && integer(position.y, 0, 6))) return false;
       if (new Set(value.positions.map(position => position.x + ':' + position.y)).size !== 8) return false;
+      if (value.version === 2) {
+        if (!Array.isArray(value.connectors) || value.connectors.length > 2 || !denseArray(value.connectors, value.connectors.length)) return false;
+        if (!value.connectors.every(link => keys(link, ['from', 'to']) && synergyKind(value, link.from, link.to))) return false;
+        if (new Set(value.connectors.map(link => link.from + ':' + link.to)).size !== value.connectors.length) return false;
+      }
       if (!integer(value.selectedSlot, 0, 7) || typeof value.needsReward !== 'boolean' || typeof value.routePending !== 'boolean') return false;
       if (!denseArray(value.offers, 3) || new Set(value.offers).size !== 3 || !value.offers.every(id => validId(MODULES, id))) return false;
       const routeValid = route => keys(route, ['sectorId', 'objectiveId', 'enemyId']) && validId(SECTOR_BY_ID, route.sectorId) && validId(OBJECTIVES, route.objectiveId) && validId(ENEMIES, route.enemyId);
@@ -443,7 +532,7 @@
       if (!integer(value.turn, 0, limit) || !integer(value.maxHp, 1, MAX_RESOURCE) || !integer(value.hp, 0, value.maxHp) || !integer(value.shield, 0, MAX_RESOURCE) || !integer(value.enemyAttack, 0, 100)) return false;
       if (value.maxHp !== Math.round(WAVE_HP[value.wave - 1] * (value.enemyId === 'swarm' ? 0.75 : 1))) return false;
       if (!validMetrics(value.metrics) || !integer(value.totalDamage, 0, MAX_METRIC) || !integer(value.eventsTotal, 0, value.turn * EVENT_LIMIT) || !integer(value.chainPeak, 0, Math.min(EVENT_LIMIT, value.eventsTotal))) return false;
-      if (!METRIC_IDS.every(id => value.metrics[id].activations <= value.turn * EVENT_LIMIT * 8 && value.metrics[id].energy <= value.metrics[id].activations * 10 && value.metrics[id].clones <= value.metrics[id].activations * 3)) return false;
+      if (!METRIC_IDS.every(id => value.metrics[id].activations <= value.turn * EVENT_LIMIT * 8 && value.metrics[id].energy <= value.metrics[id].activations * 10 && value.metrics[id].clones <= value.metrics[id].activations * (id === 'clone' ? 4 : 3))) return false;
       const waveDamage = METRIC_IDS.reduce((sum, id) => sum + value.metrics[id].damage, 0);
       if (waveDamage !== value.maxHp - value.hp || value.totalDamage < waveDamage || value.totalDamage > WAVE_HP.slice(0, value.wave - 1).reduce((sum, hp) => sum + hp, 0) + waveDamage) return false;
       if (!Array.isArray(value.log) || value.log.length > LOG_LIMIT || !denseArray(value.log, value.log.length) || !value.log.every(validText)) return false;
@@ -461,5 +550,5 @@
     } catch (_) { return false; }
   }
 
-  return Object.freeze({ MODULES, LOADOUTS, SECTORS, OBJECTIVES, UPGRADES, ENEMIES, createRun, selectSlot, installModule, moveSlot, relocateSlot, chooseRoute, reroll, buyUpgrade, startBattle, tick, nextWave, canStart, getBattlePreview, getHints, validateRun });
+  return Object.freeze({ MODULES, LOADOUTS, SECTORS, OBJECTIVES, UPGRADES, ENEMIES, createRun, selectSlot, installModule, moveSlot, relocateSlot, chooseRoute, reroll, buyUpgrade, startBattle, tick, nextWave, canStart, getBattlePreview, getHints, validateRun, getSynergies, getSynergyBonus, canConnectSlots, connectSlots, disconnectSlots, getTurnSummary });
 });

@@ -148,7 +148,7 @@
     document.body.classList.toggle('desktop-game', desktop);
     if (desktop) {
       for (const [key, nodes] of Object.entries(sections)) panes[key].append(...nodes);
-      sidebar.append(manager, battle);
+      sidebar.append(battle, manager);
       command.querySelector('.combat-controls').before(utilities);
       logDialog.node.append(log); log.open = true;
       reportDialog.node.append(report, continueButton);

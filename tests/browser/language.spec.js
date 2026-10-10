@@ -111,7 +111,7 @@ test('English battle action describes pausing and switching language keeps the b
   await page.locator('#language-select').selectOption('ko');
   await page.locator('#language-select').selectOption('en');
   expect((await saved(page)).run).toEqual(before);
-  await expect(page.locator('#command-title')).toHaveText('Production running');
+  await expect(page.locator('#command-title')).toHaveText('Fighting');
   await page.clock.runFor(1100);
   expect((await saved(page)).run.turn).toBe(1);
 });
