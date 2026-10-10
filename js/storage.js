@@ -15,13 +15,16 @@
   }
 
   function sanitizeSettings(value) {
-    var settings = { music: false, sfx: true, speed: 1, tutorialSeen: false };
+    var settings = { music: false, sfx: true, speed: 1, tutorialSeen: false, language: 'ko' };
     if (!isObject(value)) return settings;
     ['music', 'sfx', 'tutorialSeen'].forEach(function (key) {
       if (hasOwn.call(value, key) && typeof value[key] === 'boolean') settings[key] = value[key];
     });
     if (hasOwn.call(value, 'speed') && [0.5, 1, 2, 3].indexOf(value.speed) !== -1) {
       settings.speed = value.speed;
+    }
+    if (hasOwn.call(value, 'language') && (value.language === 'ko' || value.language === 'en')) {
+      settings.language = value.language;
     }
     return settings;
   }

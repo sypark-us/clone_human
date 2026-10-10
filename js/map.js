@@ -1,5 +1,6 @@
 (function (root) {
   'use strict';
+  const t = (...args) => root.CloneHumanI18n.t(...args);
   const NS = 'http://www.w3.org/2000/svg';
   const COLORS = { mine: '#d7af68', clone: '#7ed9b2', soldier: '#9cc4dc', echo: '#b9a2e3', boost: '#edc873', bomb: '#e99576', recycle: '#92bb88', mutation: '#b4a0d3', onclone: '#75cbbb', onkill: '#dbbc71', autoclone: '#90bbd6', revive: '#8ed49d' };
   const symbols = {
@@ -81,9 +82,11 @@
     setZoom(value) {
       this.zoom = Math.max(1, Math.min(1.8, value));
       this.world.style.width = (this.zoom * 100) + '%';
+      this.world.style.setProperty('--map-zoom', this.zoom);
     }
     render(state, moving, paused) {
       this.state = state; this.moving = moving;
+      this.tiles.setAttribute('aria-label', t('공장 지도. 방향키로 탐색하고 Enter로 선택합니다.'));
       const sector = this.engine.SECTORS.find(item => item.id === state.sectorId);
       this.world.classList.toggle('running', state.phase === 'battle' && !paused);
       this.world.classList.toggle('move-mode', moving);
@@ -96,10 +99,10 @@
         const module = this.engine.MODULES[kind];
         const zone = sector?.lanes[Math.floor(x / 4)];
         button.className = 'map-tile' + (slot !== -1 ? ' occupied' : '') + (slot === state.selectedSlot ? ' selected' : '') + (state.phase === 'battle' && active.has(slot) && !paused ? ' working' : '');
-        button.setAttribute('aria-label', (slot !== -1 ? '슬롯 ' + (slot + 1) + ' · ' + (module?.name || '빈 설비') : '빈 땅') + ' · ' + (x + 1) + ',' + (y + 1) + ' · ' + (zone?.name || ''));
+        button.setAttribute('aria-label', (slot !== -1 ? t('슬롯 {slot}', { slot: slot + 1 }) + ' · ' + t(module?.name || '빈 설비') : t('빈 땅')) + ' · ' + (x + 1) + ',' + (y + 1) + ' · ' + t(zone?.name || ''));
         button.setAttribute('aria-pressed', String(slot !== -1 && slot === state.selectedSlot));
         if (slot !== -1) {
-          button.innerHTML = '<span class="machine-number">' + (slot + 1) + '</span>' + (kind ? machine(kind) : '<span class="empty-pad"><span>+</span></span>') + '<span class="machine-label">' + (module?.name || '빈 설비') + '</span>';
+          button.innerHTML = '<span class="machine-number">' + (slot + 1) + '</span>' + (kind ? machine(kind) : '<span class="empty-pad"><span>+</span></span>') + '<span class="machine-label">' + t(module?.name || '빈 설비') + '</span>';
         } else {
           const ore = ((x * 13 + y * 19) % 17 === 0 || (x < 3 && y === 5));
           button.innerHTML = ore ? '<span class="ore ore-' + Math.floor(x / 4) + '" aria-hidden="true"><i></i><i></i><i></i></span>' : '';
@@ -120,7 +123,7 @@
       labels.replaceChildren();
       (sector?.lanes || []).forEach((lane, i) => {
         const label = document.createElement('span');
-        label.textContent = ['A', 'B', 'C'][i] + ' / ' + lane.name;
+        label.textContent = ['A', 'B', 'C'][i] + ' / ' + t(lane.name);
         labels.append(label);
       });
     }

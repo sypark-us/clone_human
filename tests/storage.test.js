@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const { createStore } = require('../js/storage.js');
 
 const KEY = 'clone-human:save';
-const defaults = { music: false, sfx: true, speed: 1, tutorialSeen: false };
+const defaults = { music: false, sfx: true, speed: 1, tutorialSeen: false, language: 'ko' };
 const run = { version: 1, phase: 'battle', turn: 3, hp: 40 };
 const validRun = value => value !== null && typeof value === 'object' &&
   value.version === 1 && value.phase === 'battle' && Number.isInteger(value.turn) &&
@@ -40,7 +40,7 @@ test('save and reload restore an independent run snapshot and selected settings'
   const storage = memoryStorage();
   const store = createStore(storage, validRun);
   const input = { ...run };
-  const settings = { music: true, sfx: false, speed: 0.5, tutorialSeen: true };
+  const settings = { music: true, sfx: false, speed: 0.5, tutorialSeen: true, language: 'ko' };
   assert.deepEqual(store.save(input, settings), { ok: true, error: null });
   input.hp = 0;
   const loaded = createStore(storage, validRun).load();
@@ -55,6 +55,42 @@ test('all supported playback speeds survive persistence', () => {
     assert.equal(store.save(run, { speed }).ok, true);
     assert.equal(store.load().settings.speed, speed);
   }
+});
+
+test('Korean and English language preferences round trip without changing the run', () => {
+  const storage = memoryStorage();
+  const store = createStore(storage, validRun);
+  const originalRun = JSON.stringify(run);
+  for (const language of ['en', 'ko']) {
+    assert.deepEqual(store.save(run, { ...defaults, language }), { ok: true, error: null });
+    const loaded = createStore(storage, validRun).load();
+    assert.equal(loaded.settings.language, language);
+    assert.equal(loaded.error, null);
+    assert.equal(JSON.stringify(loaded.run), originalRun);
+    assert.equal(JSON.stringify(JSON.parse(storage.getItem(KEY)).run), originalRun);
+  }
+});
+
+test('invalid and inherited language preferences fall back to Korean', () => {
+  for (const language of [undefined, null, false, 0, '', 'EN', 'KO', 'en-US', 'ko-KR', ' en', 'en ', ['en'], {}]) {
+    const storage = memoryStorage(record(run, { ...defaults, language }));
+    const store = createStore(storage, validRun);
+    assert.equal(store.load().settings.language, 'ko', JSON.stringify(language));
+    assert.equal(store.save(run, { ...defaults, language }).ok, true);
+    assert.equal(store.load().settings.language, 'ko', JSON.stringify(language));
+  }
+  const store = createStore(memoryStorage(), validRun);
+  assert.equal(store.save(run, Object.create({ language: 'en' })).ok, true);
+  assert.equal(store.load().settings.language, 'ko');
+});
+
+test('old saves without a language restore Korean without rewriting their bytes', () => {
+  const legacySettings = { music: true, sfx: false, speed: 2, tutorialSeen: true };
+  const raw = record(run, legacySettings);
+  const storage = memoryStorage(raw);
+  const result = createStore(storage, validRun).load();
+  assert.deepEqual(result, { run, settings: { ...legacySettings, language: 'ko' }, error: null });
+  assert.equal(storage.getItem(KEY), raw);
 });
 
 test('malformed preferences use defaults with no unknown or inherited keys', () => {
@@ -93,7 +129,7 @@ test('unknown and malformed schemas are rejected without deleting data', () => {
 });
 
 test('engine validation rejects bad runs while recovering valid preferences', () => {
-  const settings = { music: true, sfx: false, speed: 2, tutorialSeen: true };
+  const settings = { music: true, sfx: false, speed: 2, tutorialSeen: true, language: 'ko' };
   const raw = record({ ...run, turn: -1 }, settings);
   const storage = memoryStorage(raw);
   const result = createStore(storage, validRun).load();
@@ -128,7 +164,7 @@ test('missing, throwing, and nonboolean validators never accept a run', () => {
 test('clearRun removes the resumable run while retaining supplied preferences', () => {
   const storage = memoryStorage(record());
   const store = createStore(storage, validRun);
-  const settings = { music: true, sfx: false, speed: 3, tutorialSeen: true };
+  const settings = { music: true, sfx: false, speed: 3, tutorialSeen: true, language: 'en' };
   assert.deepEqual(store.clearRun(settings), { ok: true, error: null });
   assert.deepEqual(store.load(), { run: null, settings, error: null });
 });

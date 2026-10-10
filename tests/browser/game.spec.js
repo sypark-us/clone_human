@@ -8,6 +8,10 @@ async function seed(page, run = E.createRun({ seed: 1, loadout: 'balanced' })) {
     if (!localStorage.getItem(key)) localStorage.setItem(key, value);
   }, { key: KEY, value: JSON.stringify({ version: 1, run, settings: { music: false, sfx: true, speed: 1, tutorialSeen: true } }) });
 }
+async function panel(page, name) {
+  const tab = page.locator('[data-layout-tab="' + name + '"]');
+  if (await tab.isVisible()) await tab.click();
+}
 async function launch(page) {
   await page.goto('/');
   await page.locator('#launch-button').click();
@@ -30,14 +34,17 @@ test('new player builds, relocates, starts, pauses and resumes the exact saved b
   await expect(page.locator('#primary-button')).toBeDisabled();
   await page.locator('[data-slot="0"]').click();
   await expect(page.locator('[data-slot="0"]')).toBeFocused();
+  await panel(page, 'machine');
   await page.locator('#move-button').click();
   await page.locator('.map-tile[data-x="5"][data-y="0"]').click();
   expect((await state(page)).positions[0]).toEqual({ x: 5, y: 0 });
   await expect(page.locator('#selected-slot')).toHaveText('슬롯 1 · B 구역');
   await page.locator('[data-slot="3"]').click();
+  await panel(page, 'build');
   await page.locator('[data-install]').first().click();
   await expect(page.locator('#reward-section')).toBeHidden();
   await expect(page.locator('#primary-button')).toBeDisabled();
+  await panel(page, 'route');
   await page.locator('[data-route="0"]').click();
   await expect(page.locator('#primary-button')).toBeEnabled();
   await page.locator('#primary-button').click();
@@ -56,13 +63,14 @@ test('new player builds, relocates, starts, pauses and resumes the exact saved b
   expect((await state(page)).turn).toBe(2);
 });
 
-test('eight-wave campaign completes through real controls and renders a Korean victory report', async ({ page }) => {
+for (const language of ['ko', 'en']) test('eight-wave campaign completes through real controls in ' + language, async ({ page }) => {
   await seed(page); await page.clock.install();
-  await page.goto('/'); await page.locator('#resume-button').click();
+  await page.goto('/'); await page.locator('#language-select').selectOption(language); await page.locator('#resume-button').click();
   const scores = { mine: 4, clone: 7, soldier: 2, mutation: 9, echo: 6, boost: 3, bomb: 1, recycle: 6, onclone: 5, onkill: 0, autoclone: 0, revive: 1 };
   for (let wave = 1; wave <= 8; wave++) {
     let s = await state(page); expect(s.wave).toBe(wave);
     const route = s.routes[0].enemyId === 'swarm' || s.routes[0].objectiveId === 'rush' ? 1 : 0;
+    await panel(page, 'route');
     await page.locator(`[data-route="${route}"]`).click();
     const score = id => scores[id] - s.slots.filter(other => other === id).length * (id === 'mutation' ? 8 : id === 'clone' ? 4 : 5);
     const offer = [...s.offers].sort((a, b) => score(b) - score(a))[0];
@@ -70,7 +78,9 @@ test('eight-wave campaign completes through real controls and renders a Korean v
       const worst = s.slots.reduce((index, id, slot) => scores[id] < scores[s.slots[index]] ? slot : index, 0);
       await page.locator(`[data-slot="${worst}"]`).click();
     }
+    await panel(page, 'build');
     await page.locator(`[data-install="${offer}"]`).click();
+    await panel(page, 'upgrades');
     for (const id of ['fort', 'training', 'power']) {
       const desired = { power: 1, training: 2, fort: 3 };
       s = await state(page);
@@ -83,10 +93,13 @@ test('eight-wave campaign completes through real controls and renders a Korean v
     s = await state(page); expect(s.report.win).toBe(true);
     await expect(page.locator('#report-reason')).not.toContainText('core-destroyed');
     await expect(page.locator('#report-section')).toBeVisible();
-    if (wave < 8) await page.locator('#primary-button').click();
+    if (wave < 8) {
+      const next = page.locator('#layout-report-continue');
+      await (await next.isVisible() ? next : page.locator('#primary-button')).click();
+    }
   }
   expect((await state(page)).phase).toBe('won');
-  await expect(page.locator('#report-title')).toHaveText('공장이 미래를 만들었습니다.');
+  await expect(page.locator('#report-title')).toHaveText(language === 'ko' ? '공장이 미래를 만들었습니다.' : 'Your factory built the future.');
 });
 
 test('mobile map supports keyboard movement without page overflow and preserves a canceled restart', async ({ page }) => {
@@ -94,6 +107,7 @@ test('mobile map supports keyboard movement without page overflow and preserves 
   await seed(page); await page.goto('/'); await page.locator('#resume-button').click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.locator('[data-slot="0"]').click();
+  await panel(page, 'machine');
   await page.locator('#move-button').click();
   const cell = page.locator('.map-tile[data-x="1"][data-y="2"]');
   await cell.focus(); await page.keyboard.press('ArrowRight'); await page.keyboard.press('Enter');
