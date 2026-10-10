@@ -1,0 +1,129 @@
+(function (root) {
+  'use strict';
+  const NS = 'http://www.w3.org/2000/svg';
+  const COLORS = { mine: '#d7af68', clone: '#7ed9b2', soldier: '#9cc4dc', echo: '#b9a2e3', boost: '#edc873', bomb: '#e99576', recycle: '#92bb88', mutation: '#b4a0d3', onclone: '#75cbbb', onkill: '#dbbc71', autoclone: '#90bbd6', revive: '#8ed49d' };
+  const symbols = {
+    mine: '<path d="M18 21h28v8H18zM24 29h16v21H24z"/><path d="m28 50 4 7 4-7M19 17l8-8h10l8 8"/><path d="M19 36h7m12 0h7"/>',
+    clone: '<rect x="18" y="9" width="28" height="47" rx="9"/><path d="M18 18h28M18 47h28M26 24c19 7-7 14 12 21M38 24c-19 7 7 14-12 21M27 28h10m-10 11h10"/>',
+    soldier: '<path d="m32 9 19 8v16c0 11-12 20-19 24-7-4-19-13-19-24V17z"/><path d="M32 21v23m-9-15h18"/>',
+    echo: '<path d="M20 10h24m-24 44h24M23 10v12l18 20v12M41 10v12L23 42v12M25 32h14"/>',
+    boost: '<path d="m35 8-19 29h14l-1 20 20-31H35z"/>',
+    bomb: '<circle cx="31" cy="38" r="17"/><path d="m38 22 4-8h10M26 31l10 14m-11 0 12-14M49 6l2 4m7 3-4 1"/>',
+    recycle: '<path d="m22 20 9-12 11 18m-2-10 2 10-10-1M48 31l7 13-23 1m7 5-7-5 7-7M25 47H11l11-19m-9 3 9-3 3 9"/>',
+    mutation: '<path d="M24 9h16M27 9v20L14 48q-3 8 6 8h24q9 0 6-8L37 29V9M21 41h22"/><circle cx="29" cy="46" r="2"/><circle cx="36" cy="38" r="2"/>',
+    onclone: '<circle cx="22" cy="26" r="9"/><circle cx="43" cy="40" r="9"/><path d="M34 17h14v13m0-13-14 13M16 40v12h14m-14 0 13-12"/>',
+    onkill: '<path d="m14 25 9-13h19l10 13-20 30zM14 25h38M23 12l9 43 10-43"/>',
+    autoclone: '<path d="M11 53V24l14 8V20l15 9V11h10v42zM18 42h6m7 0h6m7 0h3"/>',
+    revive: '<path d="M25 12h14v14h14v14H39v14H25V40H11V26h14z"/>'
+  };
+  function machine(id, decorative) {
+    const color = COLORS[id] || '#7a8b8d';
+    return '<svg viewBox="0 0 80 88" ' + (decorative === false ? '' : 'aria-hidden="true"') + ' class="machine-art" style="--machine-color:' + color + '">' +
+      '<ellipse cx="40" cy="77" rx="33" ry="9" fill="#060c0d" opacity=".7"/>' +
+      '<path d="m8 63 32-13 32 13v10L40 86 8 73z" fill="#182c2c" stroke="#3a5150"/>' +
+      '<path d="M12 16 40 5l28 11v45L40 73 12 61z" fill="#253a3b" stroke="#526561"/>' +
+      '<path d="m40 5 28 11-28 11-28-11z" fill="#465550"/><path d="M40 27v46l28-12V16z" fill="#1b2d30"/>' +
+      '<rect x="15" y="18" width="48" height="47" rx="4" fill="#162628" stroke="' + color + '" stroke-width="1.5"/>' +
+      '<g transform="translate(18 17) scale(.65)" fill="none" stroke="' + color + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' + (symbols[id] || '<path d="M32 17v30M17 32h30"/>') + '</g>' +
+      '<rect x="20" y="67" width="11" height="3" rx="1" fill="' + color + '"/><circle cx="58" cy="69" r="2" fill="' + color + '"/></svg>';
+  }
+  function cloneArt() {
+    return '<svg viewBox="0 0 38 58" aria-hidden="true"><path d="M10 19h18l4 23-7 4v11h-7V43h-2v14H9V43l-5-2z" fill="#639487"/><path d="M11 22h16v15H11z" fill="#a4c5ae"/><path d="M11 5h17v17H11z" fill="#cadaaf"/><path d="M9 10h21v9H9z" fill="#314b47"/><path d="M12 13h14" stroke="#b7ebbd" stroke-width="3"/><path d="m9 26-5 12M29 26l5 12" stroke="#83a994" stroke-width="6"/></svg>';
+  }
+  function enemyArt() {
+    return '<svg viewBox="0 0 140 125" aria-hidden="true"><ellipse cx="70" cy="114" rx="53" ry="8" fill="#0a1112"/><path d="m36 63-17 10-9 35h13l13-19m68-26 17 10 9 35h-13l-13-19" fill="#684e48" stroke="#b98268" stroke-width="2"/><path d="m70 8 37 21 9 49-25 31H49L24 78l9-49z" fill="#3d3936" stroke="#927f64" stroke-width="2"/><path d="m38 31 32-17 32 17-8 24H46z" fill="#6c6250"/><path d="M39 63h62l-8 26H47z" fill="#1a2425"/><path d="M45 43h50l-8 14H53z" fill="#ed946c"/><path d="M51 72h38" stroke="#e7a17e" stroke-width="4"/><path d="M55 98v12m30-12v12M70 20v13" stroke="#a89070" stroke-width="4"/></svg>';
+  }
+  class FactoryMap {
+    constructor(container, engine, onSelect, onMove) {
+      this.container = container;
+      this.engine = engine;
+      this.onSelect = onSelect;
+      this.onMove = onMove;
+      this.zoom = 1;
+      this.moving = false;
+      container.innerHTML = '<div class="map-world"><div class="map-terrain"></div><div class="zone-wash zone-a"></div><div class="zone-wash zone-b"></div><div class="zone-wash zone-c"></div><div class="map-grid"></div><svg class="map-belts" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-tiles" role="grid" aria-label="공장 지도. 방향키로 탐색하고 Enter로 선택합니다."></div><div class="map-zone-labels" aria-hidden="true"></div></div>';
+      this.world = container.querySelector('.map-world');
+      this.belts = container.querySelector('.map-belts');
+      this.tiles = container.querySelector('.map-tiles');
+      for (let y = 0; y < 7; y++) {
+        const row = document.createElement('div');
+        row.className = 'map-row'; row.setAttribute('role', 'row');
+        for (let x = 0; x < 12; x++) {
+          const cell = document.createElement('div'); cell.setAttribute('role', 'gridcell');
+          const tile = document.createElement('button');
+          tile.type = 'button'; tile.className = 'map-tile'; tile.dataset.x = x; tile.dataset.y = y;
+          tile.tabIndex = x === 0 && y === 0 ? 0 : -1;
+          tile.addEventListener('click', () => this.interact(x, y));
+          tile.addEventListener('keydown', event => this.key(event, x, y));
+          cell.append(tile); row.append(cell);
+        }
+        this.tiles.append(row);
+      }
+      this.buttons = [...this.tiles.querySelectorAll('button')];
+    }
+    interact(x, y) {
+      if (!this.state || this.state.phase !== 'prepare') return;
+      const index = this.state.positions.findIndex(pos => pos.x === x && pos.y === y);
+      if (this.moving) this.onMove(this.state.selectedSlot, x, y);
+      else if (index !== -1) this.onSelect(index);
+      else this.onSelect(-1, { x, y });
+    }
+    key(event, x, y) {
+      const directions = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+      const delta = directions[event.key];
+      if (!delta) return;
+      event.preventDefault();
+      const nx = Math.min(11, Math.max(0, x + delta[0]));
+      const ny = Math.min(6, Math.max(0, y + delta[1]));
+      this.buttons.forEach(button => { button.tabIndex = -1; });
+      const next = this.buttons[ny * 12 + nx]; next.tabIndex = 0; next.focus();
+    }
+    setZoom(value) {
+      this.zoom = Math.max(1, Math.min(1.8, value));
+      this.world.style.width = (this.zoom * 100) + '%';
+    }
+    render(state, moving, paused) {
+      this.state = state; this.moving = moving;
+      const sector = this.engine.SECTORS.find(item => item.id === state.sectorId);
+      this.world.classList.toggle('running', state.phase === 'battle' && !paused);
+      this.world.classList.toggle('move-mode', moving);
+      this.world.dataset.sector = state.sectorId;
+      const active = new Set((state.lastTurn || []).map(event => event.slot));
+      this.buttons.forEach((button, index) => {
+        const x = index % 12, y = Math.floor(index / 12);
+        const slot = state.positions.findIndex(pos => pos.x === x && pos.y === y);
+        const kind = slot === -1 ? null : state.slots[slot];
+        const module = this.engine.MODULES[kind];
+        const zone = sector?.lanes[Math.floor(x / 4)];
+        button.className = 'map-tile' + (slot !== -1 ? ' occupied' : '') + (slot === state.selectedSlot ? ' selected' : '') + (state.phase === 'battle' && active.has(slot) && !paused ? ' working' : '');
+        button.setAttribute('aria-label', (slot !== -1 ? '슬롯 ' + (slot + 1) + ' · ' + (module?.name || '빈 설비') : '빈 땅') + ' · ' + (x + 1) + ',' + (y + 1) + ' · ' + (zone?.name || ''));
+        button.setAttribute('aria-pressed', String(slot !== -1 && slot === state.selectedSlot));
+        if (slot !== -1) {
+          button.innerHTML = '<span class="machine-number">' + (slot + 1) + '</span>' + (kind ? machine(kind) : '<span class="empty-pad"><span>+</span></span>') + '<span class="machine-label">' + (module?.name || '빈 설비') + '</span>';
+        } else {
+          const ore = ((x * 13 + y * 19) % 17 === 0 || (x < 3 && y === 5));
+          button.innerHTML = ore ? '<span class="ore ore-' + Math.floor(x / 4) + '" aria-hidden="true"><i></i><i></i><i></i></span>' : '';
+        }
+      });
+      this.belts.replaceChildren();
+      state.positions.slice(0, -1).forEach((pos, i) => {
+        const next = state.positions[i + 1];
+        const sx = pos.x * 80 + 40, sy = pos.y * 80 + 44;
+        const ex = next.x * 80 + 40, ey = next.y * 80 + 44;
+        const d = 'M' + sx + ' ' + sy + ' H' + ex + ' V' + ey;
+        for (const cls of ['belt-edge', 'belt-base', 'belt-flow']) {
+          const path = document.createElementNS(NS, 'path');
+          path.setAttribute('d', d); path.setAttribute('class', cls); this.belts.append(path);
+        }
+      });
+      const labels = this.container.querySelector('.map-zone-labels');
+      labels.replaceChildren();
+      (sector?.lanes || []).forEach((lane, i) => {
+        const label = document.createElement('span');
+        label.textContent = ['A', 'B', 'C'][i] + ' / ' + lane.name;
+        labels.append(label);
+      });
+    }
+  }
+  root.CloneHumanMap = { FactoryMap, machine, cloneArt, enemyArt, COLORS };
+})(typeof window !== 'undefined' ? window : globalThis);

@@ -1,211 +1,77 @@
-<!doctype html><html lang="ko"><meta charset="utf-8"><title>Clone Human v2</title><style>body{background:#111827;color:#eee;font:16px system-ui;max-width:900px;margin:30px auto}button{padding:12px;background:#263953;color:white;border:1px solid #678;cursor:pointer;border-radius:8px;margin:3px}.selected{border:3px solid #6cf}#slots{display:grid;grid-template-columns:repeat(4,1fr)}#log{height:200px;overflow:auto;background:#223;padding:12px}.battlefield{background:#152238;border:1px solid #49617d;border-radius:16px;padding:16px;margin:15px 0}.battle-head,.battle-footer,.meter-label{display:flex;justify-content:space-between;align-items:center;gap:12px}.battle-head{margin-bottom:12px}.battle-head span,.battle-sub{font-size:12px;color:#b4c5da}.battle-stage{display:grid;grid-template-columns:1fr 50px 1fr;align-items:center;gap:8px;background:#1b2b41;border-radius:12px;padding:14px;min-height:175px}.army,.foe{text-align:center}.battle-label{font-weight:700;font-size:14px;margin:7px 0}.battle-number{font-size:25px;font-weight:800;color:#86efac}.clone-visual{display:grid;grid-template-columns:repeat(5,28px);justify-content:center;gap:4px;min-height:63px}.clone-token{background:#245f58;border:1px solid #56baaa;border-radius:7px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#d1fae5}.clone-token.empty{opacity:.22}.versus{text-align:center;color:#9fb0c7;font-weight:800}.enemy-art{width:76px;height:76px;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:46px;border:2px solid #a65c76;border-radius:16px;background:#44283e}.meter-label{font-size:13px;margin-top:11px}.meter{height:13px;border-radius:9px;background:#3d465a;overflow:hidden;margin-top:5px}.meter>div{height:100%;transition:width .15s}.hp-meter>div{background:#f07483}.shield-meter>div{background:#6bb9f5}.battle-footer{font-size:13px;color:#d4e4f7;margin-top:14px}@media(max-width:520px){.battle-stage{grid-template-columns:1fr 26px 1fr;padding:7px}.clone-visual{grid-template-columns:repeat(5,19px);gap:2px}.clone-token{width:19px;height:23px;font-size:12px}.enemy-art{width:60px;height:60px;font-size:36px}.battlefield{padding:10px}}.goal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.goal-cell{background:#142233;border-radius:8px;padding:9px}.goal-cell strong{display:block;font-size:22px;color:#8fe7ca}.goal-bar{height:12px;background:#36475c;border-radius:8px;overflow:hidden;margin:9px 0}.goal-bar span{height:100%;display:block;background:#49bfa5}.goal-note{font-size:13px;color:#c0d3e8}@media(max-width:500px){.goal-grid{grid-template-columns:1fr}}.sector-map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}.sector{background:#192c40;border:1px solid #47607c;border-radius:10px;padding:10px;min-height:115px}.sector strong{display:block;color:#8de0f0}.sector small{display:block;color:#c0cee0;margin-top:7px}.sector em{font-size:12px;color:#a3f5bc}@media(max-width:500px){.sector-map{grid-template-columns:1fr}}.analysis{background:#1b2b3c;padding:14px;border-radius:12px;line-height:1.8}.bar{height:9px;background:#35445b;border-radius:8px;overflow:hidden}.bar span{display:block;background:#57c5d8;height:100%}#hints{background:#1b2b3c;padding:12px;border-radius:10px}#offers{display:flex;flex-wrap:wrap}button:disabled{opacity:.5;cursor:not-allowed}@media(max-width:600px){body{margin:12px}#slots{grid-template-columns:repeat(2,1fr)}} .tophead{display:flex;align-items:center;justify-content:space-between;gap:12px}.tophead h1{font-size:23px;margin:0}.tophead p{font-size:13px;color:#9fb2c9}.dashboard{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}.dash-main,.dash-side{min-width:0}.dash-main{display:flex;flex-direction:column;gap:10px}.dash-side{display:flex;flex-direction:column;gap:10px}.dash-main>*,.dash-side>*{margin:0!important}.dash-actions{display:flex;flex-wrap:wrap;gap:6px}.dash-actions button{margin:0}.dash-actions #start{background:#267f63;border-color:#65c8a3;font-weight:700}.dash-panel{background:#19283d;border:1px solid #3b526d;border-radius:12px;padding:12px}.dash-panel h3{margin:0 0 8px;font-size:16px}.reward-panel{border:2px solid #64b7f5;background:#18304c}.reward-panel h3{color:#b8e5ff}.reward-panel.completed{border-color:#3b526d;background:#19283d}.reward-panel.completed #offers{display:none}.reward-panel.completed #reward-title{font-size:13px;color:#a9b9ca}.dash-panel #offers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.dash-panel #offers button{margin:0;min-height:78px;font-size:13px;padding:8px;overflow-wrap:anywhere}.dash-panel #slots{gap:5px}.dash-panel #slots button{margin:0;padding:8px 5px;min-height:75px;font-size:13px}.dash-panel #slots small{font-size:11px;color:#aabed1}.dash-panel .battlefield{padding:10px}.dash-panel .battle-stage{min-height:110px;padding:8px}.dash-panel .clone-visual{grid-template-columns:repeat(5,19px);gap:2px;min-height:42px}.dash-panel .clone-token{width:19px;height:20px;font-size:12px}.dash-panel .enemy-art{width:54px;height:54px;font-size:30px}.dash-panel .battle-label{font-size:12px}.dash-panel .battle-number{font-size:19px}.dash-panel .battle-sub{font-size:11px}.dash-panel .battle-footer{margin-top:8px}.dash-panel .goal-grid{gap:5px}.dash-panel .goal-cell{padding:7px}.dash-panel .goal-cell strong{font-size:18px}.dash-panel .sector-map{grid-template-columns:repeat(2,minmax(0,1fr))}.dash-panel .sector{min-height:80px}.dash-panel .analysis{padding:9px;font-size:13px}details{background:#19283d;border:1px solid #3b526d;border-radius:10px;padding:10px}summary{cursor:pointer;font-weight:600}details>div{margin-top:9px}#state{font-weight:700;color:#9de9c3}#stats{font-size:15px;background:#19283d;border-radius:10px;padding:10px}#log{white-space:pre-wrap} @media(max-width:760px){.dashboard{grid-template-columns:1fr}.tophead{display:block}.dash-panel #slots{grid-template-columns:repeat(4,1fr)}.dash-panel #offers{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:420px){.dash-panel #slots{grid-template-columns:repeat(2,1fr)}.dash-panel #offers{grid-template-columns:1fr}} /* v9: one-screen desktop play surface; only secondary panels scroll */
-html,body{height:100%;margin:0}
-body{max-width:none;padding:10px 16px;box-sizing:border-box;overflow:hidden}
-.tophead{height:37px;min-height:37px}.tophead h1{font-size:20px}.tophead p{margin:0}
-.dashboard{height:calc(100dvh - 55px);grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:10px;overflow:hidden}
-.dash-main,.dash-side{height:100%;min-height:0;gap:7px}
-.dash-main>.dash-panel,.dash-side>.dash-panel{padding:8px 10px}
-.dash-main>.dash-panel:nth-child(1){max-height:105px;overflow:auto;flex-shrink:0}
-.dash-main>.reward-panel{flex-shrink:0;max-height:152px;overflow:auto}
-.dash-main>.dash-panel:nth-child(3){flex:1;min-height:0;overflow:auto}
-.dash-main>.dash-actions{flex-shrink:0}
-.dash-main>.dash-panel:nth-child(5){max-height:110px;overflow:auto;flex-shrink:0}
-.dash-side>.dash-panel:nth-child(1){flex-shrink:0}
-.dash-side>.dash-panel:nth-child(2){flex-shrink:0;min-height:0}
-.dash-side>.dash-panel:nth-child(3){flex-shrink:0;max-height:160px;overflow:auto}
-.dash-side>.dash-panel:nth-child(n+4){min-height:0;overflow:auto}
-.dash-panel h3{font-size:14px;margin-bottom:5px}
-.dash-panel #offers button{min-height:64px;padding:6px}
-.dash-panel #slots button{min-height:58px;padding:5px}
-.dash-panel .battlefield{margin:0}
-.dash-panel .battle-stage{min-height:80px;padding:5px}
-.dash-panel .enemy-art{height:42px;width:42px;font-size:24px}
-.dash-panel .clone-visual{min-height:25px}
-.dash-panel .clone-token{height:16px}
-.dash-panel .battle-head{margin-bottom:4px}
-.dash-panel .meter-label{margin-top:5px}
-.dash-panel .battle-footer{margin-top:5px}
-.dash-panel .goal-grid{grid-template-columns:repeat(3,1fr)}
-.dash-panel .goal-cell strong{font-size:16px}
-.dash-panel #routes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin:3px 0}
-.dash-panel #routes .sector{min-height:0;padding:6px;text-align:left;font-size:12px}
-.dash-panel #routes .sector small{margin-top:2px;font-size:11px}
-.dash-panel #routes .sector em{display:none}
-#stats{font-size:13px;padding:7px}
-@media(max-height:730px) and (min-width:761px){
-.dash-main>.dash-panel:nth-child(5){max-height:60px}
-.dash-side>.dash-panel:nth-child(3){max-height:110px}
-.dash-panel .battle-stage{min-height:65px}
-.dash-panel #slots button{min-height:50px}
-}
-@media(max-width:760px){
-body{padding:7px;overflow:auto;height:auto}
-.dashboard{height:auto;overflow:visible;display:flex;flex-direction:column}
-.dash-main,.dash-side{height:auto;overflow:visible}
-.dash-main>.dash-panel:nth-child(1),.dash-main>.reward-panel,.dash-main>.dash-panel:nth-child(3),.dash-main>.dash-panel:nth-child(5){max-height:none;overflow:visible}
-.dash-main>.dash-panel:nth-child(3){flex:auto}
-.dash-main>.dash-actions{position:sticky;bottom:0;z-index:10;background:#15283e;border:1px solid #5b7899;box-shadow:0 -6px 18px #101827}
-.dash-side>.dash-panel:nth-child(n){max-height:none;overflow:visible}
-}
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111b1d">
+  <meta name="description" content="당신의 공장이 마지막 희망입니다. 설비를 배치하고, 복제인간을 생산하고, 8개 구역을 돌파하는 싱글 플레이 공장 로그라이크.">
+  <title>CLONE HUMAN — 복제인간 전투 공장</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="js/engine.js"></script>
+  <script defer src="js/storage.js"></script>
+  <script defer src="js/audio.js"></script>
+  <script defer src="js/map.js"></script>
+  <script defer src="js/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#factory">공장 지도로 건너뛰기</a>
+  <header class="topbar">
+    <a class="brand" href="#" id="home-button" aria-label="Clone Human 시작 화면">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M10 4h20v8L10 28v8h20v-8L10 12zM10 4l20 8M10 28l20 8M10 16h20M10 24h20"/></svg>
+      <span>CLONE HUMAN<small>복제인간 전투 공장</small></span>
+    </a>
+    <div class="top-actions">
+      <span id="save-status" class="save-status" role="status">로컬 저장</span>
+      <button id="music-button" class="quiet-button" aria-pressed="false">음악 꺼짐</button>
+      <button id="sfx-button" class="quiet-button" aria-pressed="true">효과음 켜짐</button>
+      <button id="help-button" class="icon-button" aria-label="플레이 가이드">?</button>
+    </div>
+  </header>
+  <p id="save-warning" class="save-warning" role="status" hidden></p>
 
-/* v10: core controls never require scrolling; optional content can scroll independently */
-*{box-sizing:border-box}
-body{padding:6px 10px;overflow:hidden;height:100dvh}
-.tophead{height:30px;min-height:30px}
-.tophead h1{font-size:18px}.tophead p{font-size:12px}
-.dashboard{height:calc(100dvh - 40px);min-height:0;overflow:hidden;grid-template-columns:minmax(430px,1.12fr) minmax(320px,.88fr)}
-.dash-main{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;gap:6px;overflow:hidden}
-.dash-main>.reward-panel{grid-row:1;max-height:none;overflow:visible;padding:8px!important}
-.dash-main>.dash-panel:nth-child(2){grid-row:2;max-height:none;overflow:visible;padding:6px 8px!important}
-.dash-main>.dash-panel:nth-child(3){grid-row:3;min-height:0;overflow:auto;padding:7px!important}
-.dash-main>.dash-actions{grid-row:4;flex-shrink:0;position:relative;z-index:2;padding:6px!important}
-.dash-main>.dash-panel:nth-child(5){display:none}
-.dash-main>.reward-panel #offers{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
-.dash-main>.reward-panel #offers button{min-height:55px;padding:5px 6px}
-.dash-main>.reward-panel #reward-title{margin:0 0 4px}
-.dash-main>.dash-panel:nth-child(2)>h3{display:none}
-.dash-main>.dash-panel:nth-child(2) #routes{margin:0;gap:5px}
-.dash-main>.dash-panel:nth-child(2) #routes .sector{padding:6px;min-height:0}
-.dash-main>.dash-panel:nth-child(2) #routes .sector small{font-size:11px}
-.dash-main>.dash-panel:nth-child(3)>h3{margin:0 0 4px}
-.dash-main>.dash-panel:nth-child(3) #slots{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
-.dash-main>.dash-panel:nth-child(3) #slots button{min-height:55px;padding:4px}
-.dash-main>.dash-panel:nth-child(3) .dash-actions{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
-.dash-main>.dash-panel:nth-child(3) .dash-actions button{padding:7px}
-.dash-main>.dash-actions button{padding:9px 12px}
-.dash-side{min-height:0;overflow:auto;gap:6px}
-.dash-side>.dash-panel:nth-child(3){max-height:none;overflow:visible}
-.dash-side>.dash-panel:nth-child(n+4){overflow:visible}
-.dash-panel .goal-note{font-size:11px}
-@media(max-height:650px) and (min-width:761px){
-.dash-main>.reward-panel #offers button{min-height:45px}
-.dash-main>.dash-panel:nth-child(3) #slots button{min-height:45px}
-.dash-main>.dash-panel:nth-child(3) #slots small{font-size:10px}
-.dash-main>.dash-actions button{padding:6px 8px}
-}
-@media(max-width:760px){
-body{height:100dvh;overflow:hidden;padding:4px}
-.tophead{height:28px}
-.tophead p{display:none}
-.dashboard{height:calc(100dvh - 35px);display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);overflow:hidden}
-.dash-main{height:100%;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;overflow:hidden}
-.dash-main>.reward-panel{grid-row:1}
-.dash-main>.dash-panel:nth-child(2){grid-row:2}
-.dash-main>.dash-panel:nth-child(3){grid-row:3;overflow:auto}
-.dash-main>.dash-actions{grid-row:4;position:relative;bottom:auto}
-.dash-side{display:none}
-.dash-main>.reward-panel #offers{grid-template-columns:repeat(3,minmax(0,1fr))}
-.dash-main>.dash-panel:nth-child(3) #slots{grid-template-columns:repeat(4,minmax(0,1fr))}
-}
-#viewtoggle{display:none}@media(max-width:760px){#viewtoggle{display:block;position:absolute;right:4px;top:2px;padding:5px 8px;z-index:20;font-size:12px}.show-battle .dash-main{display:none}.show-battle .dash-side{display:flex;height:100%;overflow:auto}.show-battle .dash-side>.dash-panel{max-height:none;overflow:visible}} 
-/* v11: visually scannable compact cards */
-.dash-main>.dash-panel:nth-child(2){max-height:145px!important;overflow:visible!important}
-.dash-main>.reward-panel{max-height:160px!important;overflow:visible!important}
-.dash-side>.dash-panel:first-child{max-height:none!important;overflow:visible!important}
+  <main id="game" hidden>
+    <div class="mission-heading">
+      <div><h1 id="sector-name">폐공장</h1><p id="mission-description">생산 라인을 설계하고, 다음 공격에 대비하세요.</p></div>
+      <button id="new-game-button" class="quiet-button">새 게임</button>
+    </div>
+    <nav id="campaign" class="campaign" aria-label="8개 웨이브 진행 상황"></nav>
+    <div class="game-layout">
+      <div class="factory-column">
+        <section class="factory-panel" aria-labelledby="factory-title">
+          <div class="panel-heading"><h2 id="factory-title">생산 구역</h2><div class="map-tools"><span id="build-status">건설 모드</span><button id="zoom-out" class="icon-button" aria-label="지도 축소">−</button><button id="zoom-in" class="icon-button" aria-label="지도 확대">+</button><button id="zoom-reset" class="quiet-button">기본 배율</button></div></div>
+          <div class="resource-bar" aria-label="공장 자원"><div><span>에너지</span><strong id="energy">0</strong><small>ENERGY</small></div><div><span>복제인간</span><strong id="units">0</strong><small>CLONES</small></div><div><span>개체 공격력</span><strong id="attack">0</strong><small>POWER</small></div><div><span>처리한 피해</span><strong id="total-damage">0</strong><small>DAMAGE</small></div></div>
+          <div id="factory" class="map-viewport" tabindex="-1"></div>
+          <p class="mobile-map-hint">← 좌우로 밀어 지도 탐색 · + 버튼으로 확대 →</p>
+          <div class="map-caption"><span class="live-dot"></span><span id="map-instruction">설비를 선택해서 배치와 생산 순서를 조정하세요.</span><span class="coordinates" id="coordinates">12 × 7</span></div>
+        </section>
+        <section class="production-order" aria-labelledby="order-title"><div class="section-heading"><h2 id="order-title">생산 순서</h2><span>왼쪽부터 순서대로 실행</span></div><div id="slot-rack" class="slot-rack"></div></section>
+        <section id="reward-section" class="reward-section" aria-labelledby="reward-heading"><div class="section-heading"><h2 id="reward-heading">새 설비 선택</h2><button id="reroll-button" class="quiet-button">다시 추첨 · 6 에너지</button></div><p id="reward-instruction">지도에서 설치할 슬롯을 고른 뒤 설비를 선택하세요.</p><div id="offers" class="offers"></div></section>
+        <section class="battle-panel" aria-labelledby="battle-heading"><div class="panel-heading"><h2 id="battle-heading">방어선</h2><span id="battle-phase">전투 준비</span></div><div class="battle-stage"><div class="army-scene"><div id="clone-army" class="clone-army"></div><strong id="army-label">복제인간 대기 중</strong></div><div class="battle-lane"><span></span><span></span><span></span></div><div class="enemy-scene"><div id="enemy-art"></div><strong id="enemy-name"></strong></div></div><div class="enemy-health"><div><span id="enemy-ability"></span><strong id="enemy-hp"></strong></div><div class="health-track" role="progressbar" aria-label="적 체력" aria-valuemin="0" id="health-meter"><span id="health-fill"></span></div><div class="battle-meta"><span id="shield-label"></span><span id="turn-label"></span></div></div></section>
+      </div>
+      <aside class="control-column" aria-label="공장 관리">
+        <section id="route-section" class="side-section"><div class="section-heading"><h2>다음 경로</h2><span id="wave-label">1 / 8</span></div><p class="muted">지형과 적을 확인하고 목적지를 고르세요.</p><div id="routes"></div></section>
+        <section class="side-section inspector" aria-labelledby="selected-name"><div class="selected-top"><div id="selected-art"></div><div><span id="selected-slot" class="muted">슬롯 1</span><h2 id="selected-name">빈 설비</h2></div></div><p id="selected-description"></p><div id="selected-terrain" class="terrain-note"></div><button id="move-button" class="secondary-button full-width">지도에서 이동</button><div class="order-actions"><button id="move-left" class="quiet-button">← 먼저 실행</button><button id="move-right" class="quiet-button">나중에 실행 →</button></div><p class="hint-small">이동은 지형 보너스를, 실행 순서는 연쇄 효과를 바꿉니다.</p></section>
+        <section class="side-section"><div class="section-heading"><h2>공장 확장</h2><span>지속 효과</span></div><div id="upgrades" class="upgrades"></div></section>
+        <section class="side-section strategy-section"><h2>운영 메모</h2><ul id="hints"></ul><button id="codex-button" class="text-button">설비 도감 열기 ↗</button></section>
+      </aside>
+    </div>
+    <section id="report-section" class="report-section" hidden tabindex="-1"><div class="report-heading"><div><h2 id="report-title"></h2><p id="report-reason"></p></div><strong id="report-reward"></strong></div><div id="report-stats" class="report-stats"></div><div id="report-modules"></div></section>
+    <details class="combat-log"><summary>전투 기록 <span>생산과 연쇄 효과 확인</span></summary><ol id="log"></ol></details>
+    <div class="command-bar"><div class="command-message"><strong id="command-title">전투 준비</strong><span id="command-detail">설비와 경로를 선택하세요.</span></div><div class="combat-controls"><label class="speed-control">속도 <select id="speed-select"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="3">3×</option></select></label><button id="step-button" class="secondary-button" hidden>한 턴 진행</button><button id="primary-button" class="primary-button">전투 시작 <span>→</span></button></div></div>
+  </main>
 
-#routes{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;margin:0!important}
-.route-card{display:flex;flex-direction:column;text-align:left;align-items:flex-start;gap:3px;margin:0!important;padding:9px!important;min-height:92px!important;border:1px solid #567ba1;background:#21344d;min-width:0}
-.route-card:hover{border-color:#83d4fa;background:#2a4966}
-.route-name{font-size:15px;font-weight:800;color:#f1f7ff}
-.route-type{font-size:12px;color:#b5e2ff}
-.route-detail{font-size:11px;color:#b9c7da;line-height:1.3}
-.route-cta{font-size:11px;font-weight:800;color:#9ff0bd;margin-top:auto}
-.route-selected{background:#21433e;border-radius:8px;padding:8px;font-size:13px;color:#b6f5d2}
-#upgrades{padding:0!important;background:transparent!important}
-.upgrade-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
-.upgrade-card{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;padding:8px 4px!important;margin:0!important;background:#20364c;border:1px solid #526985;text-align:center}
-.upgrade-icon{font-size:23px}.upgrade-name{font-size:12px;font-weight:700}.upgrade-level{font-size:11px;color:#a9d7fa}.upgrade-desc{font-size:10px;line-height:1.25;color:#c1d0e0}.upgrade-price{font-size:12px;font-weight:700;color:#f5d987}
-#map{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important;margin:5px 0!important}
-.zone-card{min-width:0;display:flex;flex-direction:column;gap:5px;padding:8px 5px;background:#223b51;border:1px solid #4c7894;border-radius:9px}
-.zone-title{font-size:12px;font-weight:800;color:#e2f4ff}.zone-effect{font-size:11px;color:#a5f3cf}.zone-slots{font-size:10px;color:#b7c7d8}
-#offers{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}
-#offers button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:4px;min-width:0;padding:10px!important;margin:0!important;min-height:68px!important;border:1px solid #73b9e7;background:#23445c;font-size:14px;font-weight:700}
-#offers button small{font-size:11px;line-height:1.3;color:#d3e3f4;font-weight:400}
-#upgrade-details,#map-details{display:block;padding:6px!important;margin-bottom:6px}
-#upgrade-details summary,#map-details summary{font-size:13px;cursor:pointer}
-#upgrade-details[open]>div,#map-details[open]>div{margin-top:6px}
-#map-details .goal-note{display:none}
-.dash-side>.dash-panel:first-child{order:1}
-.dash-side>.dash-panel:nth-child(2){order:0}
-.dash-side>.dash-panel:nth-child(3){order:2}
-.dash-side>.dash-panel:nth-child(4){order:3}
-.dash-side>.dash-panel:nth-child(5){order:4}
-@media(max-width:760px){.upgrade-grid,#map{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+  <section id="welcome" class="welcome" aria-labelledby="welcome-title">
+    <div class="welcome-landscape"><div class="welcome-pipes" aria-hidden="true"></div><div class="welcome-factory" id="welcome-factory" aria-hidden="true"></div><span class="landscape-caption">생산을 설계하고. 연쇄를 만들고. 살아남으세요.</span></div>
+    <div class="welcome-content"><h1 id="welcome-title">인류의 다음 장은<br><span>당신의 공장에서.</span></h1><p class="welcome-description">광맥 위에 설비를 놓고, 복제인간을 생산하세요.<br>작은 생산 라인에서 시작해 8개 구역을 돌파하는<br>공장 건설 로그라이크.</p><div class="welcome-facts"><span>8개 웨이브</span><span>12종 설비</span><span>나만의 생산 라인</span></div><form id="new-run-form"><fieldset><legend>시작 설계 선택</legend><div id="loadouts" class="loadouts"></div></fieldset><div class="welcome-buttons"><button id="resume-button" type="button" class="primary-button" hidden>이어하기 →</button><button id="launch-button" type="submit" class="primary-button">공장 가동 →</button></div></form><p id="welcome-save-note" class="hint-small">진행 상황은 이 브라우저에 자동으로 저장됩니다.</p><button id="welcome-guide" class="text-button">처음이라면? 플레이 가이드 ↗</button></div>
+  </section>
 
-/* v12: true single-row production line */
-.dash-main>.dash-panel:nth-child(3){overflow:visible!important;min-height:0!important;flex:initial!important}
-.dash-main>.dash-panel:nth-child(3) #slots,#slots{display:grid!important;grid-template-columns:repeat(8,minmax(0,1fr))!important;gap:4px!important;overflow:visible!important}
-#slots .production-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0;min-height:76px!important;padding:5px 2px!important;position:relative;overflow:hidden;border:1px solid #59718e;border-top-width:4px}
-#slots .production-card.zone-a{border-top-color:#e9a35d}#slots .production-card.zone-b{border-top-color:#69c6a3}#slots .production-card.zone-c{border-top-color:#8ca5f5}
-#slots .production-card.selected{outline:2px solid #9fe2ff;outline-offset:-2px;background:#2b4b64}
-.slot-index{font-size:10px;color:#aabbd1}.slot-icon{font-size:22px;line-height:1.1}.slot-name{font-size:10px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}.slot-zone{font-size:10px;font-weight:800;color:#d3e5fa}
-.dash-main>.dash-panel:nth-child(3)>h3{font-size:13px}
-.dash-main>.dash-panel:nth-child(3)>h3::after{content:'   ① → ② → ③ → ④ → ⑤ → ⑥ → ⑦ → ⑧';font-size:11px;color:#99c4dd;font-weight:400}
-.dash-main>.dash-panel:nth-child(3) .dash-actions{justify-content:flex-start}
-@media(max-width:760px){.dash-main>.dash-panel:nth-child(3) #slots,#slots{grid-template-columns:repeat(8,minmax(0,1fr))!important}.slot-icon{font-size:17px}.slot-name{font-size:9px}#slots .production-card{min-height:68px!important}.dash-main>.dash-panel:nth-child(3)>h3::after{content:'   → 오른쪽으로 실행'}}
-@media(max-width:480px){.dash-main>.dash-panel:nth-child(3) #slots,#slots{display:flex!important;overflow-x:auto!important;scroll-snap-type:x mandatory;padding:3px 2px!important}.production-card{flex:0 0 54px;scroll-snap-align:start}.slot-name{font-size:9px}}
-
-/* v13: all player choices in the left column */
-.dash-main>.dash-panel:nth-child(3){overflow-y:auto!important;overflow-x:hidden!important}
-.dash-main>.dash-panel:nth-child(3) #upgrade-details{display:block!important;margin-top:9px;padding:7px!important;background:#1b3044;border:1px solid #4b7793}
-.dash-main>.dash-panel:nth-child(3) #upgrade-details summary{font-size:13px;color:#b9e4fc}
-.dash-main>.dash-panel:nth-child(3) .upgrade-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
-.dash-main>.dash-panel:nth-child(3) .upgrade-card{min-height:95px}
-.dash-main>.dash-panel:nth-child(3) #upgrade-details[open]{margin-bottom:5px}
-.dash-side #map-details{margin:0}
-@media(max-width:760px){.dash-main>.dash-panel:nth-child(3){overflow-y:auto!important}.dash-main>.dash-panel:nth-child(3) .upgrade-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-
-/* v14: hint panel is always visible and never collapses into zero-height flex item */
-.dash-side{overflow-y:auto!important;overflow-x:hidden!important;align-content:start!important}
-.dash-side>.dash-panel{flex:0 0 auto!important;min-height:auto!important;overflow:visible!important;order:initial!important}
-.dash-side>.hint-panel{order:4!important;border:1px solid #5582a2;background:#1d3247}
-.dash-side>.hint-panel h3{margin:0 0 7px;font-size:14px;color:#b8e6ff}
-.dash-side>.hint-panel #hints{display:block!important;min-height:34px;white-space:normal;overflow-wrap:anywhere;line-height:1.55;padding:9px;border-radius:8px;background:#14273a;color:#e1f3ff;font-size:13px}
-.dash-side>.dash-panel:last-child{order:5!important}
-@media(max-width:760px){.show-battle .dash-side>.dash-panel{flex:0 0 auto!important}.show-battle .hint-panel{display:block!important}}
-
-/* v15: prevent horizontal clipping and unreachable panels on smaller windows */
-html{width:100%;max-width:100%;overflow-x:hidden}
-body{width:100%;max-width:100%;min-width:0}
-.dashboard{width:100%;min-width:0;grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr)}
-.dash-main,.dash-side,.dash-panel{min-width:0;max-width:100%}
-.dash-side{display:flex;flex-direction:column;min-height:0;max-height:100%;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;padding-bottom:24px}
-.dash-side>.dash-panel{width:100%;flex:0 0 auto!important;min-height:max-content!important;max-height:none!important;overflow:visible!important}
-.dash-side .analysis,.dash-side #hints,.dash-side #goal,.dash-side #modifier,.dash-side #startinfo{overflow-wrap:anywhere;white-space:normal}
-.dash-side .goal-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-.dash-side .goal-cell{min-width:0;overflow-wrap:anywhere}
-.dash-side .battle-stage{grid-template-columns:minmax(0,1fr) 28px minmax(0,1fr)}
-.dash-side .battlefield{width:100%;min-width:0}
-.dash-side .battle-head,.dash-side .battle-footer{flex-wrap:wrap}
-.dash-side #map{grid-template-columns:repeat(3,minmax(0,1fr))!important}
-.dash-main>.dash-panel:nth-child(3){min-height:0!important;overflow-y:auto!important;overflow-x:auto!important}
-.dash-main>.dash-panel:nth-child(3) #slots{min-width:0}
-.dash-main>.dash-panel:nth-child(3) #upgrade-details{max-width:100%}
-@media(max-width:1020px){
-body{height:auto;min-height:100dvh;overflow-y:auto!important;overflow-x:hidden!important}
-.dashboard{height:auto!important;display:flex!important;flex-direction:column!important;overflow:visible!important;gap:10px}
-.dash-main,.dash-side{display:flex!important;flex-direction:column!important;height:auto!important;max-height:none!important;overflow:visible!important}
-.dash-main>.dash-panel,.dash-side>.dash-panel{flex:0 0 auto!important;max-height:none!important;overflow:visible!important}
-.dash-main>.dash-panel:nth-child(3){overflow-x:auto!important;overflow-y:visible!important}
-.dash-main>.dash-actions{position:sticky!important;bottom:0!important;z-index:15;background:#15283e;box-shadow:0 -5px 15px #0e1724}
-.dash-side{padding-bottom:24px}
-#viewtoggle{display:none!important}
-.show-battle .dash-main,.show-battle .dash-side{display:flex!important}
-}
-@media(max-width:520px){
-.dash-side .goal-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-.dash-side #map{grid-template-columns:repeat(3,minmax(0,1fr))!important}
-.dash-side .clone-visual{grid-template-columns:repeat(5,18px)}
-}
-</style><header class="tophead"><h1>🧬 CLONE HUMAN</h1><p>모듈 선택 → 생산 슬롯 배치 → 전투</p></header><button id="viewtoggle" type="button" onclick="document.body.classList.toggle('show-battle');this.textContent=document.body.classList.contains('show-battle')?'🏭 공장 보기':'⚔️ 전투 보기'">⚔️ 전투 보기</button><div class="dashboard" id="dashboard"></div><h2 id="stats"></h2><section class="battlefield" aria-label="전투 상황"><div class="battle-head"><strong>⚔️ 전투 현황</strong><span id="battlephase"></span></div><div class="battle-stage"><div class="army"><div class="battle-label">아군 복제인간</div><div id="clone-visual" class="clone-visual"></div><div class="battle-number" id="armycount"></div><div class="battle-sub" id="armypower"></div></div><div class="versus">VS</div><div class="foe"><div class="enemy-art" id="enemy-art" aria-hidden="true"></div><div id="enemy-name" class="battle-label"></div><div id="enemy-ability" class="battle-sub"></div></div></div><div class="meter-label"><span>적 체력</span><strong id="battlehp"></strong></div><div class="meter hp-meter"><div id="hpfill"></div></div><div class="meter-label"><span>적 방어막</span><strong id="battleshield"></strong></div><div class="meter shield-meter"><div id="shieldfill"></div></div><div class="battle-footer"><span id="battledamage"></span><span id="battleturns"></span></div></section><div id="slots"></div><button onclick="move(-1)">◀ 왼쪽</button><button onclick="move(1)">오른쪽 ▶</button><button id="start" onclick="start()">전투 시작</button><button onclick="init()">새 게임</button><button id="reroll" onclick="reroll()">보상 새로고침 (에너지 6)</button><h3>🧭 다음 구역 선택</h3><div id="routes" class="sector-map"></div><details id="upgrade-details"><summary>🏗️ 공장 확장</summary><div id="upgrades" class="analysis"></div></details><details id="map-details"><summary>🗺️ 지역별 슬롯 보너스</summary><div id="map" class="sector-map"></div><p class="goal-note">1~3: A구역 · 4~6: B구역 · 7~8: C구역</p></details><h3 id="reward-title">🎁 보상 모듈</h3><div id="offers"></div><h3 id="enemy"></h3><section class="analysis" id="goal" aria-live="polite"></section><div id="modifier" class="analysis"></div><div id="startinfo" class="analysis"></div><p id="state"></p><details><summary>📊 전투 분석 및 발동 횟수</summary><div id="counts"></div><div id="analysis" class="analysis">전투 후 모듈별 기여도가 표시됩니다.</div></details><details><summary>🧠 전략 힌트</summary><div id="hints"></div></details><details><summary>📜 전투 기록</summary><div id="log"></div></details><script>
-const M={mine:['⛏️ 채굴','에너지 +4'],clone:['🧬 복제','에너지 4 → 병사 2'],soldier:['🛡️ 훈련','에너지 3 → 병사 1'],echo:['⏳ 시간 복제','직전 모듈 2회 추가'],boost:['⚡ 증폭','직전 모듈 1회 추가'],bomb:['💣 자폭','병사 2명 소비, 피해 28'],recycle:['♻️ 회수','피해마다 에너지 +2'],mutation:['🧪 변이','에너지 5 → 공격력 +2'],onclone:['🔁 복제 반응','복제 시 추가 공격'],onkill:['💎 처치 회수','처치 시 에너지 +8'],autoclone:['🏭 자동 복제','처치 시 병사 2명'],revive:['💚 재생','자폭 시 병사 1명 복귀']};const ENEMIES=[{id:'standard',name:'일반 코어',desc:'기본 전투'},{id:'jam',name:'복제 억제 코어',desc:'복제/훈련 비용 +2'},{id:'drain',name:'에너지 흡수 코어',desc:'매 턴 에너지 -3'},{id:'armor',name:'폭발 방어 코어',desc:'자폭 피해 60% 감소'},{id:'disrupt',name:'시간 교란 코어',desc:'시간 복제/증폭 추가 실행 -1'},{id:'swarm',name:'대량 공격 코어',desc:'매 턴 병사 손실 +2, 적 체력 -25%'}];const SECTORS=[{name:'폐공장',lanes:[['⛏️ 광맥','mine',2],['🧬 복제실','clone',1],['⚔️ 전장','attack',1.3]]},{name:'에너지 협곡',lanes:[['⚡ 발전소','mine',3],['🛡️ 방어 지대','defense',1],['💣 폭약 창고','bomb',1.6]]},{name:'유전자 연구소',lanes:[['🧪 변이실','mutation',2],['🧬 배양실','clone',1],['♻️ 재활용실','recycle',1]]},{name:'황무지',lanes:[['💣 폭발 지대','bomb',1.5],['⛏️ 자원 지대','mine',2],['⚔️ 고지대','attack',1.5]]},{name:'중앙 통제실',lanes:[['🧬 복제 증폭','clone',1],['⚔️ 전투 증폭','attack',1.6],['⚡ 동력 핵심','mine',4]]}];function chooseSector(){return SECTORS[(s.wave-1+s.runSeed)%SECTORS.length]}function generateRoutes(){const a=(s.wave-1+s.runSeed)%SECTORS.length;const b=(a+2)%SECTORS.length;return [{sector:a,objective:OBJECTIVES[(s.wave-1)%3]},{sector:b,objective:OBJECTIVES[(s.wave)%3]}]}function chooseRoute(i){if(s.playing||s.done||!s.routePending)return;const r=s.routes[i];if(!r)return;s.sector=SECTORS[r.sector];s.objective=r.objective;s.routePending=false;log('경로 선택: '+s.sector.name+' / '+s.objective.name);render()}function buyUpgrade(id){if(s.playing||s.done||s.energy<12||s.upgrades[id]>=3)return;s.energy-=12;s.upgrades[id]++;log('공장 확장: '+UPGRADES.find(u=>u.id===id).name+' Lv.'+s.upgrades[id]);render()}function laneFor(i){return i<3?0:i<6?1:2}function bonus(kind,i){const l=s.sector.lanes[laneFor(i)];return l[1]===kind?l[2]:0}const UPGRADES=[{id:'power',name:'발전기 확장',desc:'매 턴 에너지 +2 (최대 3단계)'},{id:'training',name:'복제 배양조',desc:'매 턴 병사 +1 (최대 3단계)'},{id:'fort',name:'방어벽 증설',desc:'턴당 병사 손실 -1 (최대 3단계)'}];const OBJECTIVES=[{id:'normal',name:'일반 전투',desc:'기본 전투, 보상 에너지 +3'},{id:'rush',name:'긴급 돌파',desc:'8턴 안에 격파, 보상 에너지 +12'},{id:'survive',name:'장기 방어',desc:'10턴 생존 후 적 격파, 보상 에너지 +10'}];const STARTS=[{name:'채굴 중심',slots:['mine','clone','soldier'],energy:8,units:2,attack:2},{name:'복제 중심',slots:['clone','mine','onclone'],energy:12,units:2,attack:2},{name:'자폭 중심',slots:['mine','soldier','bomb'],energy:9,units:4,attack:2},{name:'변이 중심',slots:['mine','mutation','soldier'],energy:10,units:2,attack:3},{name:'회수 중심',slots:['soldier','recycle','mine'],energy:7,units:3,attack:2}];const $=id=>document.getElementById(id);let s,timer;
-function log(x){$('log').textContent=x+'\n'+$('log').textContent}function roll(){s.offers=[];let keys=Object.keys(M);while(s.offers.length<3){let k=keys[Math.floor(Math.random()*keys.length)];if(!s.offers.includes(k))s.offers.push(k)}}
-function init(){clearInterval(timer);const runSeed=Math.floor(Math.random()*5);const st=STARTS[Math.floor(Math.random()*STARTS.length)];s={wave:1,energy:st.energy,units:st.units,attack:st.attack,total:0,slots:[...st.slots,null,null,null,null,null].slice(0,8),startName:st.name,enemyType:null,runSeed,sector:null,objective:OBJECTIVES[0],routes:[],routePending:false,upgrades:{power:0,training:0,fort:0},selected:3,pick:true,playing:false,done:false,turn:0,hp:1,max:1,counts:{},queue:[],processed:0,report:null,metrics:null,turnDamage:0,shield:0,enemyAttack:0,chainPeak:0,eventsTotal:0,overflows:0};s.enemyType=nextEnemy();s.sector=chooseSector();s.routes=generateRoutes();s.routePending=true;roll();$('log').textContent='';render()}
-function choose(i){if(!s.playing){s.selected=i;render()}}function move(d){if(s.playing)return;let j=s.selected+d;if(j<0||j>=8)return;[s.slots[j],s.slots[s.selected]]=[s.slots[s.selected],s.slots[j]];s.selected=j;render()}
-function nextEnemy(){const candidates=ENEMIES.filter(e=>e.id!=='standard');return s.wave===1?ENEMIES[0]:candidates[Math.floor(Math.random()*candidates.length)]}function reroll(){if(s.playing||s.done||!s.pick||s.energy<6)return;s.energy-=6;roll();log('보상 새로고침: 에너지 6 소비');render()}function pick(k){if(!s.pick||s.playing)return;s.slots[s.selected]=k;s.pick=false;render()}function event(kind,n=1,source=''){if(s.queue.length+s.processed<120)s.queue.push({kind,n,source});else s.overflows++}
-function act(k,i){if(!k)return;s.counts[k]=(s.counts[k]||0)+1;s.metrics[k].activations++;if(k==='mine'){const n=4+bonus('mine',i);s.energy+=n;s.metrics[k].energy+=n;}if(k==='clone'&&s.energy>=4+(s.enemyType?.id==='jam'?2:0)){s.energy-=4+(s.enemyType?.id==='jam'?2:0);{const n=2+bonus('clone',i);s.units+=n;s.metrics[k].clones+=n;event('clone',n,k)}}if(k==='soldier'&&s.energy>=3+(s.enemyType?.id==='jam'?2:0)){s.energy-=3+(s.enemyType?.id==='jam'?2:0);s.units++;s.metrics[k].clones++;event('clone',1,k)}if(k==='mutation'&&s.energy>=5){s.energy-=5;s.attack+=2+bonus('mutation',i);s.metrics[k].power+=2+bonus('mutation',i)}if(k==='bomb'){let n=Math.min(2,s.units);s.units-=n;if(n){event('damage',Math.round(14*n*(s.enemyType?.id==='armor'?.4:1)*(bonus('bomb',i)||1)),k);event('bomb',n,k)}}if((k==='echo'||k==='boost')&&i>0){let p=s.slots[i-1];if(p&&p!=='echo'&&p!=='boost')for(let j=0;j<Math.max(0,(k==='echo'?2:1)-(s.enemyType?.id==='disrupt'?1:0));j++)act(p,i-1)}}
-function flush(){while(s.queue.length&&s.processed<120){let e=s.queue.shift();s.processed++;if(e.kind==='clone')for(let k of s.slots)if(k==='onclone'){s.counts[k]=(s.counts[k]||0)+1;s.metrics[k].activations++;event('damage',e.n*s.attack,k)}if(e.kind==='bomb')for(let k of s.slots)if(k==='revive'){s.counts[k]=(s.counts[k]||0)+1;s.metrics[k].activations++;s.metrics[k].clones++;s.units++}if(e.kind==='damage'){let absorbed=Math.min(s.shield,e.n);s.shield-=absorbed;let dealt=Math.min(s.hp,e.n-absorbed);s.hp-=dealt;s.total+=dealt;s.turnDamage+=dealt;if(e.source&&s.metrics[e.source])s.metrics[e.source].damage+=dealt;for(let k of s.slots)if(k==='recycle'){s.counts[k]=(s.counts[k]||0)+1;s.metrics[k].activations++;s.metrics[k].energy+=2+(s.sector.lanes.some(l=>l[1]==='recycle')?1:0);s.energy+=2+(s.sector.lanes.some(l=>l[1]==='recycle')?1:0)}if(s.hp===0&&dealt>0)event('kill')}if(e.kind==='kill')for(let k of s.slots){if(k==='onkill'){s.counts[k]=(s.counts[k]||0)+1;s.metrics[k].activations++;s.metrics[k].energy+=8;s.energy+=8}if(k==='autoclone'){s.counts[k]=(s.counts[k]||0)+1;s.metrics[k].activations++;s.metrics[k].clones+=2;s.units+=2;event('clone',2,k)}}}s.eventsTotal+=s.processed;s.chainPeak=Math.max(s.chainPeak,s.processed);s.queue=[]}
-function tick(){s.turn++;s.energy+=s.upgrades.power;s.units+=s.upgrades.training;if(s.enemyType?.id==='drain')s.energy=Math.max(0,s.energy-3);s.queue=[];s.processed=0;s.counts={};s.turnDamage=0;let hp=s.hp;for(let i=0;i<8;i++){act(s.slots[i],i);flush()}event('damage',Math.round(s.units*s.attack*(s.sector.lanes.some(l=>l[1]==='attack')?1.2:1)),'basic');flush();if(s.hp>0){const lost=Math.min(s.units,s.enemyAttack);s.units-=lost;s.metrics.basic.losses+=lost;if(s.wave>=4&&s.turn%3===0){s.shield+=Math.ceil(s.wave*2.5);log('적 방어막 재생: +'+Math.ceil(s.wave*2.5));}}log('턴 '+s.turn+': 피해 '+s.turnDamage+' · 병사 '+s.units+' · 에너지 '+s.energy+' · 연쇄 '+s.processed);if(!s.hp&&s.objective.id!=='survive')return end(s.objective.id!=='rush'||s.turn<=8);if(!s.hp&&s.objective.id==='survive')return end(s.turn>=10);if(s.objective.id==='rush'&&s.turn>=8)return end(false);if(s.turn>=12)return end(false);render()}
-function end(win){clearInterval(timer);s.playing=false;if(win)s.energy+=s.objective.id==='rush'?12:s.objective.id==='survive'?10:3;s.report={win,wave:s.wave,enemy:s.enemyType?.name,turns:s.turn,damage:s.max-s.hp,events:s.eventsTotal,peak:s.chainPeak,metrics:JSON.parse(JSON.stringify(s.metrics)),overflows:s.overflows};if(!win||s.wave===8){s.done=true;log(win?'🏆 최종 승리!':'💀 패배')}else{s.wave++;s.energy+=Math.max(3,12-s.turn);s.units+=2;s.pick=true;s.enemyType=nextEnemy();s.sector=chooseSector();s.routes=generateRoutes();s.routePending=true;roll();log('웨이브 클리어! 보상을 선택하세요.')}render()}
-function start(){if(s.pick||s.playing||s.done||s.routePending)return;if(!s.enemyType)s.enemyType=nextEnemy();s.max=Math.round(35*Math.pow(1.85,s.wave-1)*(s.enemyType.id==='swarm'?.75:1));s.hp=s.max;s.shield=s.wave>=4?Math.round(s.wave*7):0;s.enemyAttack=Math.max(0,Math.ceil(s.wave*0.85)+(s.enemyType.id==='swarm'?2:0)-(s.sector.lanes.some(l=>l[1]==='defense')?1:0)-s.upgrades.fort);s.turn=0;s.playing=true;s.eventsTotal=0;s.chainPeak=0;s.overflows=0;s.metrics=Object.fromEntries([...Object.keys(M),'basic'].map(k=>[k,{activations:0,damage:0,clones:0,energy:0,power:0,losses:0}]));s.report=null;timer=setInterval(tick,450);render()}
-function renderAnalysis(){const r=s.report;if(!r){$('analysis').textContent='전투 후 모듈별 피해·복제·에너지·발동 횟수를 비교할 수 있습니다.';return}const entries=Object.entries(r.metrics).filter(([k,v])=>v.activations||v.damage||v.clones||v.energy||v.power).sort((a,b)=>b[1].damage-a[1].damage);const max=Math.max(1,...entries.map(([k,v])=>v.damage));$('analysis').innerHTML='<b>'+(r.win?'승리':'패배')+' · '+r.wave+'웨이브 ('+r.enemy+') · '+r.turns+'턴 · 총 피해 '+r.damage+'</b><br>연쇄 이벤트 '+r.events+'회 · 최대 턴 연쇄 '+r.peak+'회'+(r.overflows?' · 제한 초과 '+r.overflows+'회':'')+entries.map(([k,v])=>'<div style="margin-top:9px">'+(M[k]?.[0]||'⚔️ 기본 공격')+' · 피해 '+v.damage+' · 복제 '+v.clones+' · 에너지 +'+v.energy+' · 발동 '+v.activations+'<div class="bar"><span style="width:'+Math.round(v.damage/max*100)+'%"></span></div></div>').join('')}function renderHints(){let arr=[];if(!s.slots.includes('mine'))arr.push('에너지 공급원이 없습니다.');if(s.slots.includes('clone')&&!s.slots.includes('mine'))arr.push('복제에 필요한 에너지를 보충하세요.');if(s.slots.includes('echo')||s.slots.includes('boost')){for(let i=0;i<s.slots.length;i++)if(['echo','boost'].includes(s.slots[i])&&(!s.slots[i-1]||['echo','boost'].includes(s.slots[i-1])))arr.push((i+1)+'번 증폭 슬롯 앞에 실행 가능한 모듈을 놓으세요.')}if(s.slots.includes('bomb')&&!s.slots.includes('revive'))arr.push('자폭에 재생을 연결하면 병사 소모를 줄일 수 있습니다.');if(s.slots.includes('onkill')||s.slots.includes('autoclone'))arr.push('처치 효과는 적이 죽을 때만 발동합니다.');if(!arr.length)arr.push('생산·복제·공격의 순서를 바꿔 피해와 연쇄 발동 횟수를 비교하세요.');$('hints').textContent=arr.join(' | ')}function renderRoutes(){$('routes').innerHTML=s.routePending?s.routes.map((r,i)=>'<button class="route-card" onclick="chooseRoute('+i+')"><span class="route-name">🗺️ '+SECTORS[r.sector].name+'</span><span class="route-type">'+r.objective.name+'</span><span class="route-detail">'+r.objective.desc+'</span><span class="route-cta">선택하기 →</span></button>').join(''):'<div class="route-selected">✓ '+s.sector.name+' · '+s.objective.name+'</div>'}function renderUpgrades(){$('upgrades').innerHTML='<div class="upgrade-grid">'+UPGRADES.map((u,i)=>'<button class="upgrade-card" onclick="buyUpgrade(\''+u.id+'\')" '+(s.playing||s.done||s.energy<12||s.upgrades[u.id]>=3?'disabled':'')+'><span class="upgrade-icon">'+['⚡','🧬','🛡️'][i]+'</span><span class="upgrade-name">'+u.name+'</span><span class="upgrade-level">Lv.'+s.upgrades[u.id]+'/3</span><span class="upgrade-desc">'+u.desc+'</span><span class="upgrade-price">⚡ 12</span></button>').join('')+'</div>'}function renderMap(){const ranges=['1–3','4–6','7–8'];$('map').innerHTML=s.sector.lanes.map((l,i)=>'<div class="zone-card"><span class="zone-title">'+['A','B','C'][i]+' · '+l[0]+'</span><span class="zone-effect">'+({mine:'채굴 ⚡ +'+l[2],clone:'복제 +'+l[2],attack:'전체 공격력 강화',bomb:'자폭 피해 ×'+l[2],mutation:'변이 공격력 +'+l[2],recycle:'회수 ⚡ +1',defense:'병사 손실 -1'}[l[1]])+'</span><span class="zone-slots">슬롯 '+ranges[i]+'</span></div>').join('')}function renderBattle(){const icons={standard:'🤖',jam:'🧬',drain:'🔋',armor:'🛡️',disrupt:'⏳',swarm:'👾'};const live=s.playing;const max=live?s.max:Math.round(35*Math.pow(1.85,s.wave-1)*(s.enemyType?.id==='swarm'?.75:1));const hp=live?s.hp:max;const shield=live?s.shield:(s.wave>=4?Math.round(s.wave*7):0);const initialShield=s.wave>=4?Math.round(s.wave*7):0;const displayShieldMax=Math.max(initialShield,shield,1);const shown=Math.min(15,s.units);$('clone-visual').innerHTML=Array.from({length:15},(_,i)=>'<div class="clone-token'+(i<shown?'':' empty')+'">'+(i<shown?'♟':'')+'</div>').join('');$('armycount').textContent='× '+s.units;$('armypower').textContent='병사당 공격력 '+s.attack;$('enemy-art').textContent=icons[s.enemyType?.id]||'🤖';$('enemy-name').textContent=s.enemyType?.name||'일반 코어';$('enemy-ability').textContent=s.enemyType?.desc||'기본 전투';$('battlehp').textContent=hp+' / '+max;$('hpfill').style.width=(100*hp/Math.max(1,max))+'%';$('battleshield').textContent=shield;$('shieldfill').style.width=(100*shield/displayShieldMax)+'%';$('battledamage').textContent='남은 필요 피해 '+(hp+shield);$('battleturns').textContent='턴 '+(live?s.turn:0)+' / '+(s.objective.id==='rush'?8:12);$('battlephase').textContent=s.done?(s.hp===0?'승리':'패배'):live?'전투 진행 중':s.routePending?'경로 선택 중':'전투 준비 중'}function renderGoal(){const live=s.playing;const max=live?s.max:Math.round(35*Math.pow(1.85,s.wave-1)*(s.enemyType?.id==='swarm'?.75:1));const shield=live?s.shield:(s.wave>=4?Math.round(s.wave*7):0);const hp=live?s.hp:max;const remaining=hp+shield;const done=live?max-hp:0;const limit=s.objective.id==='rush'?8:12;const turnsLeft=live?limit-s.turn:limit;const avg=live&&s.turn?Math.round(done/s.turn):0;const estimated=live&&s.turn?avg*turnsLeft:null;const estimate=estimated===null?'전투 시작 후 계산':estimated>=remaining?'현재 평균이면 승리 가능':'현재 평균이면 피해 부족';$('goal').innerHTML='<b>🎯 이번 웨이브 승리 목표</b><div class="goal-grid"><div class="goal-cell">기본 목표 체력<strong>'+max+'</strong></div><div class="goal-cell">남은 필요 피해<strong>'+remaining+'</strong></div><div class="goal-cell">이번 웨이브 누적 피해<strong>'+done+'</strong></div></div><div class="goal-bar"><span style="width:'+Math.max(0,Math.min(100,100*(max-hp)/max))+'%"></span></div><div class="goal-note">현재 체력 '+hp+' + 방어막 '+shield+' | 남은 턴 '+turnsLeft+'/'+limit+' | 평균 턴당 피해 '+avg+' | '+estimate+'</div><div class="goal-note">승리 조건: '+(s.objective.id==='rush'?'8턴 안에 적 격파':s.objective.id==='survive'?'10턴 이상 생존 후 적 격파':'12턴 안에 적 격파')+'. 방어막과 재생 때문에 필요한 총 피해는 증가할 수 있습니다. 예상치는 현재 평균에 기반한 참고값입니다.</div>'}function render(){$('reward-panel').classList.toggle('completed',!s.pick||s.done);$('reward-title').textContent=s.pick&&!s.done?'🎁 보상 선택 — 슬롯을 고른 후 모듈을 클릭하세요':'✓ 보상 선택 완료';$('modifier').textContent='지역: '+s.sector.name+' | 이번 적: '+(s.enemyType?.name||'일반 코어')+' — '+(s.enemyType?.desc||'기본 전투');$('startinfo').textContent='시작 조건: '+s.startName+' | 매 게임 시작 모듈과 초기 자원이 달라집니다.';$('stats').textContent='웨이브 '+s.wave+'/8 | 에너지 '+s.energy+' | 병사 '+s.units+' | 공격력 '+s.attack+' | 총 피해 '+s.total;$('slots').innerHTML=s.slots.map((k,i)=>'<button class="production-card zone-'+(i<3?'a':i<6?'b':'c')+' '+(i===s.selected?'selected':'')+'" onclick="choose('+i+')" title="'+(k?M[k][1]:'빈 슬롯 — 보상 배치')+'" aria-label="슬롯 '+(i+1)+' '+(k?M[k][0]:'빈 슬롯')+'"><span class="slot-index">'+(i+1)+'</span><span class="slot-icon">'+(k?M[k][0].split(' ')[0]:'➕')+'</span><span class="slot-name">'+(k?M[k][0].split(' ').slice(1).join(' '):'빈 슬롯')+'</span><span class="slot-zone">'+(i<3?'A':i<6?'B':'C')+'</span></button>').join('');$('offers').innerHTML=s.pick&&!s.done?s.offers.map(k=>'<button onclick="pick(\''+k+'\')">'+M[k][0]+'<small style="display:block">'+M[k][1]+'</small></button>').join(''):'선택 완료';$('enemy').textContent=s.playing?'적 코어 HP '+s.hp+'/'+s.max+' · 방어막 '+s.shield+' · 턴당 병사 손실 '+s.enemyAttack:'다음 적: 웨이브 '+s.wave;$('state').textContent=s.done?(s.hp===0?'승리!':'게임 오버'):s.playing?'전투 진행 중':s.routePending?'다음 전투 지역을 선택하세요':s.pick?'모듈을 선택하세요':'전투 준비 완료';$('counts').textContent=Object.entries(s.counts).map(([k,n])=>M[k][0]+' ×'+n).join(' | ')||'전투 후 표시';$('start').disabled=s.pick||s.playing||s.done||s.routePending;$('reroll').disabled=!s.pick||s.playing||s.done||s.energy<6;renderAnalysis();renderHints();renderGoal();renderMap();renderRoutes();renderUpgrades();renderBattle()}function arrangeDashboard(){const root=$('dashboard');const main=document.createElement('div');main.className='dash-main';const side=document.createElement('div');side.className='dash-side';root.append(main,side);const wrap=(ids,cls,target)=>{const panel=document.createElement('section');panel.className='dash-panel '+(cls||'');if(cls==='reward-panel')panel.id='reward-panel';ids.forEach(id=>panel.append($(id)));target.append(panel);return panel};wrap(['reward-title','offers'],'reward-panel',main);wrap(['routes'],'',main).insertAdjacentHTML('afterbegin','<h3>🧭 다음 구역 선택</h3>');wrap(['slots'],'',main).insertAdjacentHTML('afterbegin','<h3>🏭 생산 슬롯 (클릭해 선택)</h3>');const controls=document.createElement('div');controls.className='dash-panel dash-actions';['start','reroll'].forEach(id=>controls.append($(id)));main.append(controls);const extras=document.createElement('div');extras.className='dash-panel';const upgradeDetails=$('upgrade-details'),mapDetails=$('map-details');upgradeDetails.open=true;mapDetails.open=true;extras.append(mapDetails);side.append(extras);wrap(['stats'],'',side);const battlefield=document.querySelector('.battlefield');const battlePanel=document.createElement('section');battlePanel.className='dash-panel';battlePanel.append(battlefield);side.append(battlePanel);wrap(['goal'],'',side);const status=document.createElement('div');status.className='dash-panel';['state','modifier','startinfo','enemy'].forEach(id=>status.append($(id)));side.append(status);const hintPanel=document.createElement('section');hintPanel.className='dash-panel hint-panel';hintPanel.innerHTML='<h3>🧠 전략 힌트</h3>';const hint=$('hints');const oldHintDetails=hint.closest('details');hintPanel.append(hint);side.append(hintPanel);oldHintDetails.remove();const details=document.createElement('div');details.className='dash-panel';document.querySelectorAll('details').forEach(el=>{if(!extras.contains(el))details.append(el)});side.append(details);const buttons=document.createElement('div');buttons.className='dash-actions';document.querySelectorAll('button[onclick^="move("],button[onclick="init()"]').forEach(el=>buttons.append(el));main.children[2].append(buttons);main.children[2].append(upgradeDetails);document.querySelectorAll('body>h3').forEach(el=>el.remove());}arrangeDashboard();init();</script></html>
+  <footer class="footer"><span>CLONE HUMAN</span><span>설계. 생산. 생존.</span><span>싱글 플레이 · 로컬 자동 저장</span></footer>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <div id="announcer" class="sr-only" aria-live="polite"></div>
+  <dialog id="guide-dialog" aria-labelledby="guide-title"><div class="dialog-heading"><h2 id="guide-title">첫 번째 공장 가동하기</h2><button class="icon-button" data-close="guide-dialog" aria-label="가이드 닫기">×</button></div><div class="guide-steps"><div><b>1</b><div><h3>설비를 선택하세요</h3><p>지도에 표시된 8개 설비 중 하나를 고르고 새 모듈을 설치합니다. 빈 슬롯에 설치하면 기존 설비를 유지할 수 있습니다.</p></div></div><div><b>2</b><div><h3>지도 위에서 설계하세요</h3><p>설비 선택 → ‘지도에서 이동’ → 목적지를 클릭합니다. A·B·C 구역마다 보너스가 다릅니다. 컨베이어는 생산 순서대로 자동 연결됩니다.</p></div></div><div><b>3</b><div><h3>경로를 고르고 전투하세요</h3><p>지역·적·보상을 비교해 경로를 선택하세요. 매 턴 설비가 순서대로 작동하고 복제인간이 공격합니다. 에너지를 먼저 생산해야 뒤쪽 설비가 작동합니다.</p></div></div><div><b>4</b><div><h3>공장을 강화하세요</h3><p>승리하면 새 설비와 에너지를 얻습니다. 8번째 코어를 격파하면 승리! 전투를 일시정지하거나 한 턴씩 진행하며 설계를 확인할 수 있습니다.</p></div></div></div><div class="keyboard-guide"><strong>키보드</strong><span>지도: 방향키 + Enter</span><span>Space: 시작 / 일시정지</span><span>Esc: 이동 취소</span></div><button class="primary-button full-width" data-close="guide-dialog">알겠습니다</button></dialog>
+  <dialog id="codex-dialog" aria-labelledby="codex-title"><div class="dialog-heading"><h2 id="codex-title">설비 도감</h2><button class="icon-button" data-close="codex-dialog" aria-label="도감 닫기">×</button></div><p class="muted">12종의 설비를 조합해 나만의 연쇄를 만드세요.</p><div id="codex-list" class="codex-list"></div></dialog>
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title"><div class="dialog-heading"><h2 id="confirm-title">새 공장을 시작할까요?</h2></div><p>현재 진행 중인 공장은 새 게임으로 교체됩니다.</p><div class="dialog-actions"><button class="secondary-button" data-close="confirm-dialog">계속 플레이</button><button id="confirm-new" class="primary-button">새 게임 시작</button></div></dialog>
+  <noscript><p class="noscript">이 게임은 JavaScript가 필요합니다. 브라우저 설정에서 JavaScript를 활성화해 주세요.</p></noscript>
+</body>
+</html>
