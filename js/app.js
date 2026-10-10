@@ -41,6 +41,8 @@
   );
 
   map.bindTooltips($('slot-rack'));
+  const machineUpgrades = new window.CloneHumanMachineUpgrades(E, () => run, Art.summary,
+    slot => act(() => E.upgradeMachine(run, slot), 'place'), () => map.hideTooltip());
 
   function toast(message) {
     $('toast').textContent = t(message); $('toast').hidden = false;
@@ -102,6 +104,7 @@
     save(); render(); schedule();
   }
   function showWelcome() {
+    machineUpgrades.close(); map.hideTooltip();
     paused = true; stopTimer(); welcomeVisible = true;
     $('game').hidden = true; $('welcome').hidden = false;
     renderWelcomeLabels();
@@ -131,6 +134,7 @@
     }
   }
   function openDialog(id) {
+    machineUpgrades.close(); map.hideTooltip();
     if (run?.phase === 'battle') { paused = true; schedule(); render(); }
     $(id).showModal();
   }
@@ -159,8 +163,9 @@
     const module = E.MODULES[id];
     const sector = E.SECTORS.find(item => item.id === run.sectorId);
     const lane = sector.lanes[Math.floor(run.positions[run.selectedSlot].x / 4)];
-    $('module-detail-title').textContent = t(module?.name || '빈 설비');
-    $('module-detail-description').textContent = t(module?.description || '빈 슬롯에 새 설비를 설치하세요.');
+    const level = E.getMachineLevel(run, run.selectedSlot);
+    $('module-detail-title').textContent = t(module?.name || '빈 설비') + (level ? ' · Lv.' + level : '');
+    $('module-detail-description').textContent = Art.summary(id, level) + (level === 1 && module ? '. ' + t(module.description) : '');
     $('module-detail-terrain').textContent = t(lane.name) + ': ' + t(lane.description || '') + ' ' + bonusText(E.getSynergyBonus(run, run.selectedSlot)).join(' · ');
   }
   function renderRouteDetails() {
@@ -196,8 +201,10 @@
     const lane = sector.lanes[zone];
     $('selected-art').innerHTML = Art.machine(id);
     $('selected-slot').textContent = t('슬롯 {slot} · {zone} 구역', { slot: run.selectedSlot + 1, zone: ['A', 'B', 'C'][zone] });
-    $('selected-name').textContent = t(module?.name || '빈 설비');
-    $('selected-description').textContent = Art.summary(id);
+    const level = E.getMachineLevel(run, run.selectedSlot);
+    $('selected-name').textContent = t(module?.name || '빈 설비') + (level ? ' · Lv.' + level : '');
+    $('selected-description').textContent = Art.summary(id, level);
+    machineUpgrades.update();
     $('selected-terrain').textContent = t(lane.name);
     $('selected-bonuses').textContent = bonusText(E.getSynergyBonus(run, run.selectedSlot)).join(' · ');
     $('connect-button').disabled = run.phase !== 'prepare' || (!connecting && !run.slots.some((_, i) => E.canConnectSlots(run, run.selectedSlot, i)));
@@ -219,7 +226,8 @@
     $('reward-section').hidden = !show;
     if (!show) return;
     const selected = E.MODULES[run.slots[run.selectedSlot]];
-    $('reward-instruction').textContent = t(selected ? '슬롯 {slot}의 {name} 교체 · 기존 설비는 사라집니다.' : '슬롯 {slot}에 새 설비를 설치합니다.', { slot: run.selectedSlot + 1, name: selected ? t(selected.name) : '' });
+    const replacingUpgrade = selected && E.getMachineLevel(run, run.selectedSlot) > 1;
+    $('reward-instruction').textContent = t(replacingUpgrade ? '슬롯 {slot}의 {name} 교체 · 새 설비는 Lv.1입니다.' : selected ? '슬롯 {slot}의 {name} 교체 · 기존 설비는 사라집니다.' : '슬롯 {slot}에 새 설비를 설치합니다.', { slot: run.selectedSlot + 1, name: selected ? t(selected.name) : '' });
     $('offers').innerHTML = run.offers.map(id => {
       const module = E.MODULES[id];
       return '<button class="offer" data-install="' + id + '"><div class="offer-top">' + Art.machine(id) + '<strong>' + escape(t(module.name)) + '</strong></div><span>' + escape(Art.summary(id)) + '</span><small>' + escape(t(selected ? '현재 설비 교체 →' : '선택한 슬롯에 설치 →')) + '</small></button>';
@@ -263,7 +271,7 @@
     $('primary-button').disabled = run.phase === 'prepare' && !E.canStart(run);
     $('step-button').hidden = run.phase !== 'battle';
     $('step-button').disabled = !paused;
-    $('build-status').textContent = t(run.phase === 'prepare' ? '건설 모드' : '관찰 모드');
+    $('build-status').textContent = t(run.phase === 'prepare' ? '우클릭: 설비 강화' : '관찰 모드');
     $('map-instruction').textContent = t(connecting ? '빛나는 설비를 선택해 연결하세요. Esc로 취소합니다.' : moving ? '목적지를 선택하세요. 이미 설비가 있는 땅은 서로 위치를 바꿉니다.' : run.phase === 'prepare' ? '설비끼리 드래그해 위치 교환 · 클릭으로 선택' : '컨베이어 순서로 생산됩니다. 전투 중에는 배치가 잠깁니다.');
   }
   function render() {
@@ -278,7 +286,7 @@
     $('wave-label').textContent = run.wave + ' / 8';
     renderCampaign(); renderRoutes(); renderInspector(); renderOffers(); renderUpgrades(); renderBattle(); renderReport(); renderCommand();
     map.render(run, moving, paused, connecting);
-    $('slot-rack').innerHTML = run.slots.map((id, i) => '<button class="rack-slot ' + (i === run.selectedSlot ? 'selected' : '') + '" data-slot="' + i + '" aria-pressed="' + (i === run.selectedSlot) + '" aria-label="' + escape(t('슬롯 {slot}', { slot: i + 1 })) + ' · ' + escape(t(E.MODULES[id]?.name || '빈 설비')) + '" ' + (run.phase !== 'prepare' ? 'disabled' : '') + '><b>' + (i + 1) + '</b>' + (id ? Art.machine(id) : '<span class="rack-empty">+</span>') + '<span>' + escape(t(E.MODULES[id]?.name || '빈 설비')) + '</span></button>').join('');
+    $('slot-rack').innerHTML = run.slots.map((id, i) => '<button class="rack-slot ' + (i === run.selectedSlot ? 'selected' : '') + '" data-slot="' + i + '" aria-pressed="' + (i === run.selectedSlot) + '" aria-label="' + escape(t('슬롯 {slot}', { slot: i + 1 })) + ' · ' + escape(t(E.MODULES[id]?.name || '빈 설비')) + (id ? ' · Lv.' + E.getMachineLevel(run, i) : '') + '" ' + (run.phase !== 'prepare' ? 'disabled' : '') + '><b>' + (i + 1) + '</b>' + (id ? Art.machine(id) + '<span class="machine-level" aria-hidden="true">Lv.' + E.getMachineLevel(run, i) + '</span>' : '<span class="rack-empty">+</span>') + '<span>' + escape(t(E.MODULES[id]?.name || '빈 설비')) + '</span></button>').join('');
     map.refreshTooltip($('slot-rack'));
     if (focusedSlot !== undefined && run.phase === 'prepare') $('slot-rack').querySelector('[data-slot="' + focusedSlot + '"]')?.focus({ preventScroll: true });
     $('hints').replaceChildren(...E.getHints(run).slice(0, 1).map(text => { const li = document.createElement('li'); li.textContent = t(text); return li; }));

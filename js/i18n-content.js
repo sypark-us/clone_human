@@ -142,6 +142,8 @@
   const loadoutNames = ['균형 생산', '채굴 중심', '복제 중심', '자폭 중심', '변이 중심', '회수 중심'];
   const sectorNames = ['폐공장', '에너지 협곡', '유전자 연구소', '황무지', '중앙 통제실'];
   const objectiveNames = ['코어 정복', '긴급 돌파', '방어선 돌파'];
+  for (const name of moduleNames) for (let level = 2; level <= 3; level++) dictionary.set(name + ' Lv.' + level + ' 강화.', dictionary.get(name) + ' upgraded to Lv.' + level + '.');
+  for (let amount = 1; amount <= 3; amount++) dictionary.set('자폭 병사 ' + amount + '명 재생', 'Regenerated ' + amount + ' clone' + (amount > 1 ? 's' : '') + ' after demolition');
   const upgradeNames = ['발전기 확장', '복제 배양조', '방어벽 증설'];
   const enemyNames = ['감시 코어', '복제 억제 코어', '에너지 흡수 코어', '폭발 방어 코어', '시간 교란 코어', '군집 코어'];
   for (const name of loadoutNames) dictionary.set(name + ' 공장 가동 준비. 모듈과 진입 경로를 선택하세요.', dictionary.get(name) + ' factory ready. Choose a module and an entry route.');

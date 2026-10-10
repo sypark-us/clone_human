@@ -35,12 +35,16 @@
     return '<svg viewBox="0 0 140 125" aria-hidden="true"><ellipse cx="70" cy="114" rx="53" ry="8" fill="#0a1112"/><path d="m36 63-17 10-9 35h13l13-19m68-26 17 10 9 35h-13l-13-19" fill="#684e48" stroke="#b98268" stroke-width="2"/><path d="m70 8 37 21 9 49-25 31H49L24 78l9-49z" fill="#3d3936" stroke="#927f64" stroke-width="2"/><path d="m38 31 32-17 32 17-8 24H46z" fill="#6c6250"/><path d="M39 63h62l-8 26H47z" fill="#1a2425"/><path d="M45 43h50l-8 14H53z" fill="#ed946c"/><path d="M51 72h38" stroke="#e7a17e" stroke-width="4"/><path d="M55 98v12m30-12v12M70 20v13" stroke="#a89070" stroke-width="4"/></svg>';
   }
   const summaries = {
-    mine: '에너지 +4 / 턴', clone: '4 E → 복제인간 2명', soldier: '3 E → 복제인간 1명',
-    mutation: '5 E → 공격력 +2', bomb: '복제인간 2명 → 피해 28', echo: '앞 생산 설비 2회 추가 실행',
-    boost: '앞 생산 설비 1회 추가 실행', recycle: '공격 적중 → +2 E', onclone: '복제 → 추가 공격',
-    onkill: '코어 격파 → +8 E', autoclone: '코어 격파 → 복제인간 +2', revive: '폭파 → 복제인간 1명 복귀'
+    mine: ['에너지 +{amount} / 턴', 'energy'], clone: ['4 E → 복제인간 {amount}명', 'clones'], soldier: ['3 E → 복제인간 {amount}명', 'clones'],
+    mutation: ['5 E → 공격력 +{amount}', 'attack'], bomb: ['복제인간 2명 → 피해 {amount}', 'damage'],
+    echo: ['앞 생산 설비 {amount}회 추가 실행', 'repeats'], boost: ['앞 생산 설비 {amount}회 추가 실행', 'repeats'],
+    recycle: ['공격 적중 → +{amount} E', 'energy'], onclone: ['복제 → 추가 공격 ×{amount}', 'multiplier'],
+    onkill: ['코어 격파 → +{amount} E', 'energy'], autoclone: ['코어 격파 → 복제인간 +{amount}', 'clones'], revive: ['폭파 → 복제인간 {amount}명 복귀', 'clones']
   };
-  function summary(id) { return t(summaries[id] || '빈 슬롯에 새 설비를 설치하세요.'); }
+  function summary(id, level = 1) {
+    const stats = root.CloneHumanEngine.getModuleStats(id, level), entry = summaries[id];
+    return entry && stats ? t(entry[0], { amount: stats[entry[1]] * (id === 'bomb' ? 2 : 1) }) : t('빈 슬롯에 새 설비를 설치하세요.');
+  }
   class FactoryMap {
     constructor(container, engine, onSelect, onMove, onConnect) {
       this.container = container;
@@ -132,10 +136,10 @@
       const slot = button?.dataset.slot !== undefined ? Number(button.dataset.slot) : this.state?.positions.findIndex(p => p.x === Number(button?.dataset.x) && p.y === Number(button?.dataset.y));
       const id = this.state?.slots[slot];
       this.hideTooltip();
-      if (!id || this.draggedSlot !== null || !button.isConnected || !button.getClientRects().length || document.querySelector('dialog[open]')) return;
+      if (!id || this.draggedSlot !== null || !button.isConnected || !button.getClientRects().length || document.querySelector('dialog[open], #machine-upgrade-menu:not([hidden])')) return;
       const title = document.createElement('strong'), effect = document.createElement('span'), bonuses = document.createElement('small');
       title.textContent = t(this.engine.MODULES[id].name);
-      effect.textContent = t('기본: {effect}', { effect: summary(id) });
+      effect.textContent = t('기본: {effect}', { effect: summary(id, this.engine.getMachineLevel(this.state, slot)) });
       const lane = this.engine.SECTORS.find(s => s.id === this.state.sectorId).lanes[Math.floor(this.state.positions[slot].x / 4)];
       const applies = { mine: ['mine'], clone: ['clone', 'attack', 'defense'], soldier: ['attack', 'defense'], mutation: ['mutation'], bomb: ['bomb', 'attack'], recycle: ['recycle'], onclone: ['attack'], revive: ['defense'] };
       const bonus = this.engine.getSynergyBonus(this.state, slot);
@@ -240,13 +244,14 @@
         const zone = sector?.lanes[Math.floor(x / 4)];
         const connectTarget = connecting && slot !== -1 && this.engine.canConnectSlots(state, state.selectedSlot, slot);
         button.className = 'map-tile' + (slot !== -1 ? ' occupied' : '') + (slot === state.selectedSlot ? ' selected' : '') + (neighbors.has(slot) ? ' synergy-neighbor' : '') + (connectTarget ? ' connect-target' : '') + (state.phase === 'battle' && active.has(slot) && !paused ? ' working' : '');
-        button.setAttribute('aria-label', (slot !== -1 ? t('슬롯 {slot}', { slot: slot + 1 }) + ' · ' + t(module?.name || '빈 설비') : t('빈 땅')) + ' · ' + (x + 1) + ',' + (y + 1) + ' · ' + t(zone?.name || '') + (connectTarget ? ' · ' + t('연결 가능') : neighbors.has(slot) ? ' · ' + t('인접 효과') : ''));
+        const level = this.engine.getMachineLevel(state, slot);
+        button.setAttribute('aria-label', (slot !== -1 ? t('슬롯 {slot}', { slot: slot + 1 }) + ' · ' + t(module?.name || '빈 설비') + (level ? ' · Lv.' + level : '') : t('빈 땅')) + ' · ' + (x + 1) + ',' + (y + 1) + ' · ' + t(zone?.name || '') + (connectTarget ? ' · ' + t('연결 가능') : neighbors.has(slot) ? ' · ' + t('인접 효과') : ''));
         if (connecting) button.setAttribute('aria-disabled', String(!connectTarget));
         else button.removeAttribute('aria-disabled');
         button.draggable = !!kind && this.canDrag();
         button.setAttribute('aria-pressed', String(slot !== -1 && slot === state.selectedSlot));
         if (slot !== -1) {
-          button.innerHTML = '<span class="machine-number">' + (slot + 1) + '</span>' + (kind ? machine(kind) : '<span class="empty-pad"><span>+</span></span>') + '<span class="machine-label">' + t(module?.name || '빈 설비') + '</span>';
+          button.innerHTML = '<span class="machine-number">' + (slot + 1) + '</span>' + (kind ? machine(kind) + '<span class="machine-level" aria-hidden="true">Lv.' + level + '</span>' : '<span class="empty-pad"><span>+</span></span>') + '<span class="machine-label">' + t(module?.name || '빈 설비') + '</span>';
         } else {
           const ore = ((x * 13 + y * 19) % 17 === 0 || (x < 3 && y === 5));
           button.innerHTML = ore ? '<span class="ore ore-' + Math.floor(x / 4) + '" aria-hidden="true"><i></i><i></i><i></i></span>' : '';
