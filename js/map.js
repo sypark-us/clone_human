@@ -43,6 +43,7 @@
       this.onConnect = onConnect;
       this.zoom = 1;
       this.moving = false;
+      this.draggedSlot = null;
       container.innerHTML = '<div class="map-world"><div class="map-terrain"></div><div class="zone-wash zone-a"></div><div class="zone-wash zone-b"></div><div class="zone-wash zone-c"></div><div class="map-grid"></div><svg class="map-belts" viewBox="0 0 960 560" aria-hidden="true"></svg><svg class="map-synergies" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-tiles" role="grid" aria-label="공장 지도. 방향키로 탐색하고 Enter로 선택합니다."></div><div class="map-zone-labels" aria-hidden="true"></div></div>';
       this.world = container.querySelector('.map-world');
       this.belts = container.querySelector('.map-belts');
@@ -58,11 +59,52 @@
           tile.tabIndex = x === 0 && y === 0 ? 0 : -1;
           tile.addEventListener('click', () => this.interact(x, y));
           tile.addEventListener('keydown', event => this.key(event, x, y));
+          tile.addEventListener('dragstart', event => this.startDrag(event, x, y));
+          tile.addEventListener('dragover', event => {
+            if (this.dragTarget(x, y) < 0) return;
+            event.preventDefault(); event.dataTransfer.dropEffect = 'move';
+            tile.classList.add('drop-target');
+          });
+          tile.addEventListener('dragleave', event => {
+            if (!tile.contains(event.relatedTarget)) tile.classList.remove('drop-target');
+          });
+          tile.addEventListener('drop', event => {
+            const source = this.draggedSlot, target = this.dragTarget(x, y);
+            if (target < 0) return;
+            event.preventDefault(); this.clearDrag(); this.onMove(source, x, y);
+          });
+          tile.addEventListener('dragend', () => this.clearDrag());
           cell.append(tile); row.append(cell);
         }
         this.tiles.append(row);
       }
       this.buttons = [...this.tiles.querySelectorAll('button')];
+    }
+    canDrag() {
+      return this.state?.phase === 'prepare' && !this.moving && !this.connecting;
+    }
+    dragTarget(x, y) {
+      if (this.draggedSlot === null || !this.canDrag()) return -1;
+      const target = this.state.positions.findIndex(position => position.x === x && position.y === y);
+      return target !== this.draggedSlot && this.state.slots[target] ? target : -1;
+    }
+    startDrag(event, x, y) {
+      const source = this.state?.positions.findIndex(position => position.x === x && position.y === y);
+      if (!this.canDrag() || !this.state.slots[source]) { event.preventDefault(); return; }
+      this.draggedSlot = source;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('application/x-clone-human-slot', String(source));
+      this.world.classList.add('drag-mode');
+      this.buttons.forEach(button => {
+        const bx = Number(button.dataset.x), by = Number(button.dataset.y);
+        button.classList.toggle('drag-source', bx === x && by === y);
+        button.classList.toggle('swap-target', this.dragTarget(bx, by) >= 0);
+      });
+    }
+    clearDrag() {
+      this.draggedSlot = null;
+      this.world.classList.remove('drag-mode');
+      this.buttons.forEach(button => button.classList.remove('drag-source', 'swap-target', 'drop-target'));
     }
     interact(x, y) {
       if (!this.state || this.state.phase !== 'prepare') return;
@@ -91,6 +133,7 @@
       this.world.style.setProperty('--map-zoom', this.zoom);
     }
     render(state, moving, paused, connecting = false) {
+      this.clearDrag();
       this.state = state; this.moving = moving; this.connecting = connecting;
       this.tiles.setAttribute('aria-label', t('공장 지도. 방향키로 탐색하고 Enter로 선택합니다.'));
       const sector = this.engine.SECTORS.find(item => item.id === state.sectorId);
@@ -112,6 +155,7 @@
         button.setAttribute('aria-label', (slot !== -1 ? t('슬롯 {slot}', { slot: slot + 1 }) + ' · ' + t(module?.name || '빈 설비') : t('빈 땅')) + ' · ' + (x + 1) + ',' + (y + 1) + ' · ' + t(zone?.name || '') + (connectTarget ? ' · ' + t('연결 가능') : neighbors.has(slot) ? ' · ' + t('인접 효과') : ''));
         if (connecting) button.setAttribute('aria-disabled', String(!connectTarget));
         else button.removeAttribute('aria-disabled');
+        button.draggable = !!kind && this.canDrag();
         button.setAttribute('aria-pressed', String(slot !== -1 && slot === state.selectedSlot));
         if (slot !== -1) {
           button.innerHTML = '<span class="machine-number">' + (slot + 1) + '</span>' + (kind ? machine(kind) : '<span class="empty-pad"><span>+</span></span>') + '<span class="machine-label">' + t(module?.name || '빈 설비') + '</span>';
