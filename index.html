@@ -14,6 +14,7 @@
   <script defer src="js/i18n-content.js"></script>
   <script defer src="js/i18n.js"></script>
   <script defer src="js/map.js"></script>
+  <script defer src="js/machine-upgrades.js"></script>
   <script defer src="js/layout.js"></script>
   <script defer src="js/combat.js"></script>
   <script defer src="js/app.js"></script>
@@ -56,7 +57,7 @@
       </div>
       <aside class="control-column" aria-label="공장 관리">
         <section id="route-section" class="side-section"><div class="section-heading"><h2>다음 경로</h2><span id="wave-label">1 / 8</span><button id="route-details-button" class="text-button">자세히 보기 ↗</button></div><div id="routes"></div></section>
-        <section class="side-section inspector" aria-labelledby="selected-name"><div class="selected-top"><div id="selected-art"></div><div><span id="selected-slot" class="muted">슬롯 1</span><h2 id="selected-name">빈 설비</h2></div></div><p id="selected-description"></p><div id="selected-terrain" class="terrain-note"></div><div id="selected-bonuses" class="synergy-bonuses"></div><button id="module-details-button" class="text-button">자세히 보기 ↗</button><button id="move-button" class="secondary-button full-width">지도에서 이동</button><button id="connect-button" class="secondary-button full-width">설비 연결</button><details id="connections-details" class="connections-details"><summary id="connections-summary">직접 연결 0 / 2</summary><div id="connections-list"></div></details><div class="order-actions"><button id="move-left" class="quiet-button">← 먼저 실행</button><button id="move-right" class="quiet-button">나중에 실행 →</button></div></section>
+        <section class="side-section inspector" aria-labelledby="selected-name"><div class="selected-top"><div id="selected-art"></div><div><span id="selected-slot" class="muted">슬롯 1</span><h2 id="selected-name">빈 설비</h2></div></div><p id="selected-description"></p><div id="selected-terrain" class="terrain-note"></div><div id="selected-bonuses" class="synergy-bonuses"></div><button id="module-details-button" class="text-button">자세히 보기 ↗</button><button id="machine-upgrade-button" class="secondary-button full-width">설비 강화</button><button id="move-button" class="secondary-button full-width">지도에서 이동</button><button id="connect-button" class="secondary-button full-width">설비 연결</button><details id="connections-details" class="connections-details"><summary id="connections-summary">직접 연결 0 / 2</summary><div id="connections-list"></div></details><div class="order-actions"><button id="move-left" class="quiet-button">← 먼저 실행</button><button id="move-right" class="quiet-button">나중에 실행 →</button></div></section>
         <section class="side-section"><div class="section-heading"><h2>공장 확장</h2><span>지속 효과</span></div><div id="upgrades" class="upgrades"></div></section>
         <section class="side-section strategy-section"><h2>운영 메모</h2><ul id="hints"></ul><button id="codex-button" class="text-button">설비 도감 열기 ↗</button></section>
       </aside>

@@ -98,6 +98,40 @@
   const preparing = state => !!state && state.phase === 'prepare';
   const integer = (value, min, max) => Number.isSafeInteger(value) && value >= min && value <= max;
 
+  const MACHINE_STATS = freeze({
+    mine: { energy: [4, 6, 8] }, clone: { clones: [2, 3, 4] }, soldier: { clones: [1, 2, 3] },
+    mutation: { attack: [2, 3, 4] }, bomb: { damage: [14, 18, 22] },
+    echo: { repeats: [2, 3, 4] }, boost: { repeats: [1, 2, 3] }, recycle: { energy: [2, 3, 4] },
+    onclone: { multiplier: [1, 1.25, 1.5] }, onkill: { energy: [8, 12, 16] },
+    autoclone: { clones: [2, 3, 4] }, revive: { clones: [1, 2, 3] }
+  });
+  function getMachineLevel(state, slot) {
+    if (!state || !integer(slot, 0, 7) || !state.slots[slot]) return 0;
+    return state.version === 3 ? state.machineLevels[slot] : 1;
+  }
+  function getModuleStats(id, level = 1) {
+    if (!own(MACHINE_STATS, id) || !integer(level, 1, 3)) return null;
+    return Object.fromEntries(Object.entries(MACHINE_STATS[id]).map(([key, values]) => [key, values[level - 1]]));
+  }
+  function getMachineUpgrade(state, slot) {
+    const level = getMachineLevel(state, slot), cost = level > 0 && level < 3 ? level * 12 : 0;
+    return { level, nextLevel: cost ? level + 1 : null, cost, canUpgrade: preparing(state) && cost > 0 && state.energy >= cost };
+  }
+  function upgradeMachine(state, slot) {
+    const upgrade = getMachineUpgrade(state, slot);
+    if (!upgrade.canUpgrade) return state;
+    // Only a successful purchase migrates legacy games; ordinary actions preserve their schema.
+    if (state.version !== 3) {
+      state.connectors = connectors(state).map(link => ({ ...link }));
+      state.machineLevels = state.slots.map(id => id ? 1 : 0);
+      state.version = 3;
+    }
+    state.energy -= upgrade.cost;
+    state.machineLevels[slot]++;
+    log(state, MODULES[state.slots[slot]].name + ' Lv.' + upgrade.nextLevel + ' 강화.');
+    return state;
+  }
+
   function normalizeSeed(seed) {
     if (typeof seed === 'number' && Number.isFinite(seed)) return (Math.trunc(seed) >>> 0) || 1;
     const text = typeof seed === 'string' ? seed : String(Date.now());
@@ -171,7 +205,7 @@
     return Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1;
   }
   function connectors(state) {
-    return state && state.version === 2 && Array.isArray(state.connectors) ? state.connectors : [];
+    return state && [2, 3].includes(state.version) && Array.isArray(state.connectors) ? state.connectors : [];
   }
   function getSynergies(state) {
     if (!state || !Array.isArray(state.slots) || !Array.isArray(state.positions)) return [];
@@ -198,7 +232,7 @@
     return result;
   }
   function canConnectSlots(state, from, to) {
-    return preparing(state) && [1, 2].includes(state.version) && !!synergyKind(state, from, to) &&
+    return preparing(state) && [1, 2, 3].includes(state.version) && !!synergyKind(state, from, to) &&
       !adjacent(state, from, to) && connectors(state).length < 2 &&
       !connectors(state).some(link => link.from === from && link.to === to);
   }
@@ -211,13 +245,13 @@
     return state;
   }
   function disconnectSlots(state, from, to) {
-    if (!preparing(state) || state.version !== 2 || !integer(from, 0, 7) || !integer(to, 0, 7)) return state;
+    if (!preparing(state) || ![2, 3].includes(state.version) || !integer(from, 0, 7) || !integer(to, 0, 7)) return state;
     const index = state.connectors.findIndex(link => link.from === from && link.to === to);
     if (index >= 0) state.connectors.splice(index, 1);
     return state;
   }
   function pruneConnectors(state) {
-    if (state.version === 2) state.connectors = state.connectors.filter(link => synergyKind(state, link.from, link.to));
+    if ([2, 3].includes(state.version)) state.connectors = state.connectors.filter(link => synergyKind(state, link.from, link.to));
   }
   function getTurnSummary(state) {
     const summary = { damage: 0, shieldDamage: 0, clonesLost: 0 };
@@ -282,6 +316,7 @@
   function installModule(state, id) {
     if (!preparing(state) || !state.needsReward || !own(MODULES, id) || !state.offers.includes(id)) return state;
     state.slots[state.selectedSlot] = id;
+    if (state.version === 3) state.machineLevels[state.selectedSlot] = 1;
     pruneConnectors(state);
     state.needsReward = false;
     log(state, (state.selectedSlot + 1) + '번 슬롯에 ' + MODULES[id].name + ' 설치.');
@@ -292,6 +327,7 @@
     const next = state.selectedSlot + direction;
     if (!integer(next, 0, 7)) return state;
     [state.slots[next], state.slots[state.selectedSlot]] = [state.slots[state.selectedSlot], state.slots[next]];
+    if (state.version === 3) [state.machineLevels[next], state.machineLevels[state.selectedSlot]] = [state.machineLevels[state.selectedSlot], state.machineLevels[next]];
     pruneConnectors(state);
     state.selectedSlot = next;
     return state;
@@ -352,6 +388,7 @@
     state.lastTurn = [];
     const hpBefore = state.hp;
     const synergies = state.slots.map((_, slot) => getSynergyBonus(state, slot));
+    const stats = state.slots.map((id, slot) => id ? getModuleStats(id, getMachineLevel(state, slot)) : null);
     let processed = 0;
     const queue = [];
     function enqueue(kind, amount, source, slot) {
@@ -374,12 +411,12 @@
         if (event.kind === 'clone') {
           forModule('onclone', slot => {
             activate('onclone', slot, '복제 반응 공격');
-            damage(Math.round(event.amount * state.attack * (bonus(state, 'attack', slot) || 1)), 'onclone', slot);
+            damage(Math.round(event.amount * state.attack * stats[slot].multiplier * (bonus(state, 'attack', slot) || 1)), 'onclone', slot);
           });
         } else if (event.kind === 'bomb') {
           forModule('revive', slot => {
-            activate('revive', slot, '자폭 병사 1명 재생');
-            gainUnits(state, 1, 'revive');
+            activate('revive', slot, '자폭 병사 ' + stats[slot].clones + '명 재생');
+            gainUnits(state, stats[slot].clones, 'revive');
           });
         } else if (event.kind === 'damage' && state.hp > 0) {
           const absorbed = Math.min(state.shield, event.amount);
@@ -390,16 +427,16 @@
           state.metrics[event.source].damage += dealt;
           note(state, event.slot, 'damage', '피해 ' + dealt + (absorbed ? ' · 방어막 ' + absorbed : ''));
           if (dealt + absorbed > 0) forModule('recycle', slot => {
-            const amount = 2 + bonus(state, 'recycle', slot);
+            const amount = stats[slot].energy + bonus(state, 'recycle', slot);
             activate('recycle', slot, '피해 회수: 에너지 +' + amount);
             gainEnergy(state, amount, 'recycle');
           });
           if (state.hp === 0 && dealt > 0) enqueue('kill', 1, event.source, event.slot);
         } else if (event.kind === 'kill') {
-          forModule('onkill', slot => { activate('onkill', slot); gainEnergy(state, 8, 'onkill'); });
+          forModule('onkill', slot => { activate('onkill', slot); gainEnergy(state, stats[slot].energy, 'onkill'); });
           forModule('autoclone', slot => {
             activate('autoclone', slot);
-            const amount = gainUnits(state, 2, 'autoclone');
+            const amount = gainUnits(state, stats[slot].clones, 'autoclone');
             if (amount) enqueue('clone', amount, 'autoclone', slot);
           });
         }
@@ -411,29 +448,29 @@
         activate(id, slot);
         const previous = state.slots[slot - 1];
         if (ACTIVE.includes(previous)) {
-          const repeats = Math.max(0, (id === 'echo' ? 2 : 1) - (state.enemyId === 'disrupt' ? 1 : 0));
+          const repeats = Math.max(0, stats[slot].repeats - (state.enemyId === 'disrupt' ? 1 : 0));
           for (let i = 0; i < repeats && state.hp > 0; i++) { act(previous, slot - 1); flush(); }
         }
         return;
       }
       if (id === 'mine') {
-        activate(id, slot); gainEnergy(state, 4 + bonus(state, 'mine', slot), id);
+        activate(id, slot); gainEnergy(state, stats[slot].energy + bonus(state, 'mine', slot), id);
       } else if (id === 'clone' || id === 'soldier') {
         const cost = (id === 'clone' ? 4 : 3) + (state.enemyId === 'jam' ? 2 : 0) - synergies[slot].costReduction;
         if (state.energy < cost) { note(state, slot, 'idle', '에너지 부족: ' + cost + ' 필요'); return; }
         activate(id, slot); state.energy -= cost;
-        const amount = gainUnits(state, (id === 'clone' ? 2 + bonus(state, 'clone', slot) : 1) + synergies[slot].clones, id);
+        const amount = gainUnits(state, stats[slot].clones + (id === 'clone' ? bonus(state, 'clone', slot) : 0) + synergies[slot].clones, id);
         if (amount) enqueue('clone', amount, id, slot);
       } else if (id === 'mutation') {
         const cost = 5 - synergies[slot].costReduction;
         if (state.energy < cost) { note(state, slot, 'idle', '에너지 부족: ' + cost + ' 필요'); return; }
         activate(id, slot); state.energy -= cost;
-        state.attack = Math.min(MAX_ATTACK, state.attack + 2 + bonus(state, 'mutation', slot));
+        state.attack = Math.min(MAX_ATTACK, state.attack + stats[slot].attack + bonus(state, 'mutation', slot));
       } else if (id === 'bomb' && state.units > 0) {
         activate(id, slot);
         const used = Math.min(2, state.units);
         state.units -= used;
-        damage(Math.round(14 * used * (state.enemyId === 'armor' ? 0.4 : 1) * (bonus(state, 'bomb', slot) || 1) * (bonus(state, 'attack', slot) || 1) * synergies[slot].damageMultiplier), id, slot);
+        damage(Math.round(stats[slot].damage * used * (state.enemyId === 'armor' ? 0.4 : 1) * (bonus(state, 'bomb', slot) || 1) * (bonus(state, 'attack', slot) || 1) * synergies[slot].damageMultiplier), id, slot);
         enqueue('bomb', used, id, slot);
       }
     }
@@ -509,15 +546,17 @@
     // No coercion: saves are untrusted data and never run through combat until this schema succeeds.
     try {
       const stateKeys = ['version', 'seed', 'rngState', 'loadoutId', 'phase', 'wave', 'energy', 'units', 'attack', 'slots', 'positions', 'selectedSlot', 'needsReward', 'offers', 'routes', 'routePending', 'sectorId', 'objectiveId', 'enemyId', 'upgrades', 'turn', 'hp', 'maxHp', 'shield', 'enemyAttack', 'metrics', 'totalDamage', 'eventsTotal', 'chainPeak', 'log', 'lastTurn', 'report'];
-      if (!record(value) || ![1, 2].includes(value.version)) return false;
-      if (!keys(value, value.version === 2 ? [...stateKeys, 'connectors'] : stateKeys)) return false;
+      if (!record(value) || ![1, 2, 3].includes(value.version)) return false;
+      const extraKeys = value.version === 3 ? ['connectors', 'machineLevels'] : value.version === 2 ? ['connectors'] : [];
+      if (!keys(value, [...stateKeys, ...extraKeys])) return false;
       if (!integer(value.seed, 1, 4294967295) || !integer(value.rngState, 1, 4294967295)) return false;
       if (!LOADOUTS.some(loadout => loadout.id === value.loadoutId) || !['prepare', 'battle', 'report', 'won', 'lost'].includes(value.phase)) return false;
       if (!integer(value.wave, 1, 8) || !integer(value.energy, 0, MAX_RESOURCE) || !integer(value.units, 0, MAX_UNITS) || !integer(value.attack, 1, MAX_ATTACK)) return false;
       if (!denseArray(value.slots, 8) || !value.slots.every(id => id === null || validId(MODULES, id))) return false;
       if (!denseArray(value.positions, 8) || !value.positions.every(position => keys(position, ['x', 'y']) && integer(position.x, 0, 11) && integer(position.y, 0, 6))) return false;
       if (new Set(value.positions.map(position => position.x + ':' + position.y)).size !== 8) return false;
-      if (value.version === 2) {
+      if (value.version === 3 && (!denseArray(value.machineLevels, 8) || !value.machineLevels.every((level, slot) => value.slots[slot] ? integer(level, 1, 3) : level === 0))) return false;
+      if ([2, 3].includes(value.version)) {
         if (!Array.isArray(value.connectors) || value.connectors.length > 2 || !denseArray(value.connectors, value.connectors.length)) return false;
         if (!value.connectors.every(link => keys(link, ['from', 'to']) && synergyKind(value, link.from, link.to))) return false;
         if (new Set(value.connectors.map(link => link.from + ':' + link.to)).size !== value.connectors.length) return false;
@@ -532,7 +571,7 @@
       if (!integer(value.turn, 0, limit) || !integer(value.maxHp, 1, MAX_RESOURCE) || !integer(value.hp, 0, value.maxHp) || !integer(value.shield, 0, MAX_RESOURCE) || !integer(value.enemyAttack, 0, 100)) return false;
       if (value.maxHp !== Math.round(WAVE_HP[value.wave - 1] * (value.enemyId === 'swarm' ? 0.75 : 1))) return false;
       if (!validMetrics(value.metrics) || !integer(value.totalDamage, 0, MAX_METRIC) || !integer(value.eventsTotal, 0, value.turn * EVENT_LIMIT) || !integer(value.chainPeak, 0, Math.min(EVENT_LIMIT, value.eventsTotal))) return false;
-      if (!METRIC_IDS.every(id => value.metrics[id].activations <= value.turn * EVENT_LIMIT * 8 && value.metrics[id].energy <= value.metrics[id].activations * 10 && value.metrics[id].clones <= value.metrics[id].activations * (id === 'clone' ? 4 : 3))) return false;
+      if (!METRIC_IDS.every(id => value.metrics[id].activations <= value.turn * EVENT_LIMIT * 8 && value.metrics[id].energy <= value.metrics[id].activations * (value.version === 3 ? 16 : 10) && value.metrics[id].clones <= value.metrics[id].activations * (value.version === 3 ? 6 : id === 'clone' ? 4 : 3))) return false;
       const waveDamage = METRIC_IDS.reduce((sum, id) => sum + value.metrics[id].damage, 0);
       if (waveDamage !== value.maxHp - value.hp || value.totalDamage < waveDamage || value.totalDamage > WAVE_HP.slice(0, value.wave - 1).reduce((sum, hp) => sum + hp, 0) + waveDamage) return false;
       if (!Array.isArray(value.log) || value.log.length > LOG_LIMIT || !denseArray(value.log, value.log.length) || !value.log.every(validText)) return false;
@@ -550,5 +589,5 @@
     } catch (_) { return false; }
   }
 
-  return Object.freeze({ MODULES, LOADOUTS, SECTORS, OBJECTIVES, UPGRADES, ENEMIES, createRun, selectSlot, installModule, moveSlot, relocateSlot, chooseRoute, reroll, buyUpgrade, startBattle, tick, nextWave, canStart, getBattlePreview, getHints, validateRun, getSynergies, getSynergyBonus, canConnectSlots, connectSlots, disconnectSlots, getTurnSummary });
+  return Object.freeze({ MODULES, LOADOUTS, SECTORS, OBJECTIVES, UPGRADES, ENEMIES, createRun, selectSlot, installModule, moveSlot, relocateSlot, chooseRoute, reroll, buyUpgrade, getMachineLevel, getModuleStats, getMachineUpgrade, upgradeMachine, startBattle, tick, nextWave, canStart, getBattlePreview, getHints, validateRun, getSynergies, getSynergyBonus, canConnectSlots, connectSlots, disconnectSlots, getTurnSummary });
 });
