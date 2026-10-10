@@ -40,6 +40,8 @@
     }
   );
 
+  map.bindTooltips($('slot-rack'));
+
   function toast(message) {
     $('toast').textContent = t(message); $('toast').hidden = false;
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 4200);
@@ -147,12 +149,6 @@
       return '<div class="campaign-node ' + (complete ? 'complete' : wave === run.wave ? 'current' : '') + '"' + (wave === run.wave ? ' aria-current="step"' : '') + '><span class="campaign-number">' + (complete ? '✓' : wave) + '</span><span>' + escape(wave === 8 ? t('최종 코어') : t('구역 {wave}', { wave })) + '</span></div>';
     }).join('');
   }
-  const summaries = {
-    mine: '+4 E / 턴', clone: '4 E → 복제인간 2명', soldier: '3 E → 복제인간 1명',
-    mutation: '5 E → 공격력 +2', bomb: '복제인간 2명 → 피해 28', echo: '앞 생산 설비 2회 추가 실행',
-    boost: '앞 생산 설비 1회 추가 실행', recycle: '공격 적중 → +2 E', onclone: '복제 → 추가 공격',
-    onkill: '코어 격파 → +8 E', autoclone: '코어 격파 → 복제인간 +2', revive: '폭파 → 복제인간 1명 복귀'
-  };
   const upgradeSummaries = { power: '+2 E / 턴', training: '복제인간 +1 / 턴', fort: '아군 손실 -1 / 턴' };
   function bonusText(bonus) {
     return [bonus.costReduction && t('비용 -1 E'), bonus.clones && t('복제인간 +1'), bonus.damageMultiplier > 1 && t('폭파 피해 +20%')].filter(Boolean);
@@ -201,7 +197,7 @@
     $('selected-art').innerHTML = Art.machine(id);
     $('selected-slot').textContent = t('슬롯 {slot} · {zone} 구역', { slot: run.selectedSlot + 1, zone: ['A', 'B', 'C'][zone] });
     $('selected-name').textContent = t(module?.name || '빈 설비');
-    $('selected-description').textContent = t(summaries[id] || '빈 슬롯에 새 설비를 설치하세요.');
+    $('selected-description').textContent = Art.summary(id);
     $('selected-terrain').textContent = t(lane.name);
     $('selected-bonuses').textContent = bonusText(E.getSynergyBonus(run, run.selectedSlot)).join(' · ');
     $('connect-button').disabled = run.phase !== 'prepare' || (!connecting && !run.slots.some((_, i) => E.canConnectSlots(run, run.selectedSlot, i)));
@@ -226,7 +222,7 @@
     $('reward-instruction').textContent = t(selected ? '슬롯 {slot}의 {name} 교체 · 기존 설비는 사라집니다.' : '슬롯 {slot}에 새 설비를 설치합니다.', { slot: run.selectedSlot + 1, name: selected ? t(selected.name) : '' });
     $('offers').innerHTML = run.offers.map(id => {
       const module = E.MODULES[id];
-      return '<button class="offer" data-install="' + id + '"><div class="offer-top">' + Art.machine(id) + '<strong>' + escape(t(module.name)) + '</strong></div><span>' + escape(t(summaries[id])) + '</span><small>' + escape(t(selected ? '현재 설비 교체 →' : '선택한 슬롯에 설치 →')) + '</small></button>';
+      return '<button class="offer" data-install="' + id + '"><div class="offer-top">' + Art.machine(id) + '<strong>' + escape(t(module.name)) + '</strong></div><span>' + escape(Art.summary(id)) + '</span><small>' + escape(t(selected ? '현재 설비 교체 →' : '선택한 슬롯에 설치 →')) + '</small></button>';
     }).join('');
     $('reroll-button').disabled = run.energy < 6;
   }
@@ -283,6 +279,7 @@
     renderCampaign(); renderRoutes(); renderInspector(); renderOffers(); renderUpgrades(); renderBattle(); renderReport(); renderCommand();
     map.render(run, moving, paused, connecting);
     $('slot-rack').innerHTML = run.slots.map((id, i) => '<button class="rack-slot ' + (i === run.selectedSlot ? 'selected' : '') + '" data-slot="' + i + '" aria-pressed="' + (i === run.selectedSlot) + '" aria-label="' + escape(t('슬롯 {slot}', { slot: i + 1 })) + ' · ' + escape(t(E.MODULES[id]?.name || '빈 설비')) + '" ' + (run.phase !== 'prepare' ? 'disabled' : '') + '><b>' + (i + 1) + '</b>' + (id ? Art.machine(id) : '<span class="rack-empty">+</span>') + '<span>' + escape(t(E.MODULES[id]?.name || '빈 설비')) + '</span></button>').join('');
+    map.refreshTooltip($('slot-rack'));
     if (focusedSlot !== undefined && run.phase === 'prepare') $('slot-rack').querySelector('[data-slot="' + focusedSlot + '"]')?.focus({ preventScroll: true });
     $('hints').replaceChildren(...E.getHints(run).slice(0, 1).map(text => { const li = document.createElement('li'); li.textContent = t(text); return li; }));
     $('log').replaceChildren(...run.log.map(text => { const li = document.createElement('li'); li.textContent = t(text); return li; }));
@@ -300,7 +297,10 @@
     if (run?.phase !== 'prepare') return;
     if (button.dataset.disconnect) { const [from, to] = button.dataset.disconnect.split(':').map(Number); act(() => E.disconnectSlots(run, from, to)); }
     if (button.dataset.slot !== undefined) { connecting = false; }
-    if (button.dataset.slot !== undefined) act(() => E.selectSlot(run, Number(button.dataset.slot)));
+    if (button.dataset.slot !== undefined) {
+      act(() => E.selectSlot(run, Number(button.dataset.slot)));
+      if (event.pointerType === 'touch') map.showTooltip($('slot-rack').querySelector('[data-slot="' + run.selectedSlot + '"]'));
+    }
     if (button.dataset.route !== undefined) act(() => E.chooseRoute(run, Number(button.dataset.route)), 'place');
     if (button.dataset.install) { act(() => E.installModule(run, button.dataset.install), 'place'); toast('설비를 설치했습니다. 지도에서 위치와 연결을 확인하세요.'); }
     if (button.dataset.upgrade) { act(() => E.buyUpgrade(run, button.dataset.upgrade), 'place'); }

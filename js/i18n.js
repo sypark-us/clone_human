@@ -189,6 +189,8 @@
   };
   Object.assign(english, {
     "전투": "Battle",
+    "에너지 +4 / 턴": "+4 energy / turn",
+    "기본: {effect}": "Base: {effect}",
     "설비끼리 드래그해 위치 교환 · 클릭으로 선택": "Drag machines to swap · Click to select",
     "전투 일시정지됨": "Battle paused",
     "반격 손실 -{amount}": "Retaliation −{amount}",

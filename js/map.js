@@ -34,6 +34,13 @@
   function enemyArt() {
     return '<svg viewBox="0 0 140 125" aria-hidden="true"><ellipse cx="70" cy="114" rx="53" ry="8" fill="#0a1112"/><path d="m36 63-17 10-9 35h13l13-19m68-26 17 10 9 35h-13l-13-19" fill="#684e48" stroke="#b98268" stroke-width="2"/><path d="m70 8 37 21 9 49-25 31H49L24 78l9-49z" fill="#3d3936" stroke="#927f64" stroke-width="2"/><path d="m38 31 32-17 32 17-8 24H46z" fill="#6c6250"/><path d="M39 63h62l-8 26H47z" fill="#1a2425"/><path d="M45 43h50l-8 14H53z" fill="#ed946c"/><path d="M51 72h38" stroke="#e7a17e" stroke-width="4"/><path d="M55 98v12m30-12v12M70 20v13" stroke="#a89070" stroke-width="4"/></svg>';
   }
+  const summaries = {
+    mine: '에너지 +4 / 턴', clone: '4 E → 복제인간 2명', soldier: '3 E → 복제인간 1명',
+    mutation: '5 E → 공격력 +2', bomb: '복제인간 2명 → 피해 28', echo: '앞 생산 설비 2회 추가 실행',
+    boost: '앞 생산 설비 1회 추가 실행', recycle: '공격 적중 → +2 E', onclone: '복제 → 추가 공격',
+    onkill: '코어 격파 → +8 E', autoclone: '코어 격파 → 복제인간 +2', revive: '폭파 → 복제인간 1명 복귀'
+  };
+  function summary(id) { return t(summaries[id] || '빈 슬롯에 새 설비를 설치하세요.'); }
   class FactoryMap {
     constructor(container, engine, onSelect, onMove, onConnect) {
       this.container = container;
@@ -57,7 +64,7 @@
           const tile = document.createElement('button');
           tile.type = 'button'; tile.className = 'map-tile'; tile.dataset.x = x; tile.dataset.y = y;
           tile.tabIndex = x === 0 && y === 0 ? 0 : -1;
-          tile.addEventListener('click', () => this.interact(x, y));
+          tile.addEventListener('click', event => { this.interact(x, y); if (event.pointerType === 'touch') this.showTooltip(tile); });
           tile.addEventListener('keydown', event => this.key(event, x, y));
           tile.addEventListener('dragstart', event => this.startDrag(event, x, y));
           tile.addEventListener('dragover', event => {
@@ -79,6 +86,85 @@
         this.tiles.append(row);
       }
       this.buttons = [...this.tiles.querySelectorAll('button')];
+      this.tooltip = document.createElement('div');
+      this.tooltip.id = 'machine-tooltip'; this.tooltip.className = 'machine-tooltip';
+      this.tooltip.setAttribute('role', 'tooltip'); this.tooltip.hidden = true;
+      document.body.append(this.tooltip);
+      this.bindTooltips(this.tiles);
+      this.tooltip.addEventListener('pointerenter', () => clearTimeout(this.tooltipTimer));
+      this.tooltip.addEventListener('pointerleave', () => this.hideTooltip());
+      document.addEventListener('pointerdown', event => {
+        if (!this.tooltipButton?.contains(event.target) && !this.tooltip.contains(event.target)) this.hideTooltip();
+      });
+      document.addEventListener('keydown', event => { if (event.key === 'Escape') this.hideTooltip(); });
+      window.addEventListener('scroll', () => this.positionTooltip(), true);
+      window.addEventListener('resize', () => this.hideTooltip());
+    }
+    bindTooltips(host) {
+      const buttonFor = event => {
+        const button = event.target.closest('button');
+        return button && host.contains(button) ? button : null;
+      };
+      host.addEventListener('pointerover', event => {
+        const button = buttonFor(event);
+        if (!button || button.contains(event.relatedTarget) || event.pointerType === 'touch') return;
+        clearTimeout(this.tooltipTimer);
+        this.tooltipTimer = setTimeout(() => this.showTooltip(button), 200);
+      });
+      host.addEventListener('pointerout', event => {
+        const button = buttonFor(event);
+        if (!button || button.contains(event.relatedTarget) || document.activeElement === button) return;
+        clearTimeout(this.tooltipTimer);
+        this.tooltipTimer = setTimeout(() => this.hideTooltip(), 120);
+      });
+      host.addEventListener('focusin', event => { const button = buttonFor(event); if (button) this.showTooltip(button); });
+      host.addEventListener('focusout', event => {
+        const button = buttonFor(event);
+        if (button && button === this.tooltipButton && !button.matches(':hover') && !this.tooltip.matches(':hover')) this.hideTooltip();
+      });
+    }
+    hideTooltip() {
+      clearTimeout(this.tooltipTimer);
+      this.tooltipButton?.removeAttribute('aria-describedby');
+      this.tooltipButton = null; this.tooltip.hidden = true;
+    }
+    showTooltip(button) {
+      const slot = button?.dataset.slot !== undefined ? Number(button.dataset.slot) : this.state?.positions.findIndex(p => p.x === Number(button?.dataset.x) && p.y === Number(button?.dataset.y));
+      const id = this.state?.slots[slot];
+      this.hideTooltip();
+      if (!id || this.draggedSlot !== null || !button.isConnected || !button.getClientRects().length || document.querySelector('dialog[open]')) return;
+      const title = document.createElement('strong'), effect = document.createElement('span'), bonuses = document.createElement('small');
+      title.textContent = t(this.engine.MODULES[id].name);
+      effect.textContent = t('기본: {effect}', { effect: summary(id) });
+      const lane = this.engine.SECTORS.find(s => s.id === this.state.sectorId).lanes[Math.floor(this.state.positions[slot].x / 4)];
+      const applies = { mine: ['mine'], clone: ['clone', 'attack', 'defense'], soldier: ['attack', 'defense'], mutation: ['mutation'], bomb: ['bomb', 'attack'], recycle: ['recycle'], onclone: ['attack'], revive: ['defense'] };
+      const bonus = this.engine.getSynergyBonus(this.state, slot);
+      const lines = [];
+      if (applies[id]?.includes(lane.kind)) lines.push(t(lane.name));
+      if (bonus.costReduction) lines.push(t('비용 -1 E'));
+      if (bonus.clones) lines.push(t('복제인간 +1'));
+      if (bonus.damageMultiplier > 1) lines.push(t('폭파 피해 +20%'));
+      bonuses.textContent = lines.join(' · '); bonuses.hidden = !lines.length;
+      this.tooltip.replaceChildren(title, effect, bonuses);
+      this.tooltipButton = button; button.setAttribute('aria-describedby', this.tooltip.id);
+      this.tooltip.hidden = false; this.positionTooltip();
+    }
+    refreshTooltip(host) {
+      if (!this.tooltipButton) return;
+      let button = this.tooltipButton;
+      // The rack is rebuilt on renders; map tile buttons remain stable.
+      if (!button.isConnected && button.dataset.slot !== undefined) button = host?.querySelector('[data-slot="' + button.dataset.slot + '"]');
+      this.showTooltip(button);
+    }
+    positionTooltip() {
+      if (this.tooltip.hidden || !this.tooltipButton?.isConnected) return;
+      const anchor = this.tooltipButton.getBoundingClientRect(), tip = this.tooltip.getBoundingClientRect();
+      const clip = this.container.contains(this.tooltipButton) ? this.container.getBoundingClientRect() : { left: 0, right: innerWidth, top: 0, bottom: innerHeight };
+      if (anchor.bottom <= Math.max(0, clip.top) || anchor.top >= Math.min(innerHeight, clip.bottom) || anchor.right <= Math.max(0, clip.left) || anchor.left >= Math.min(innerWidth, clip.right)) { this.hideTooltip(); return; }
+      const left = Math.max(8, Math.min(innerWidth - tip.width - 8, anchor.left + (anchor.width - tip.width) / 2));
+      const below = anchor.bottom + 7;
+      this.tooltip.style.left = left + 'px';
+      this.tooltip.style.top = (below + tip.height <= innerHeight - 8 ? Math.max(8, below) : Math.max(8, anchor.top - tip.height - 7)) + 'px';
     }
     canDrag() {
       return this.state?.phase === 'prepare' && !this.moving && !this.connecting;
@@ -91,6 +177,7 @@
     startDrag(event, x, y) {
       const source = this.state?.positions.findIndex(position => position.x === x && position.y === y);
       if (!this.canDrag() || !this.state.slots[source]) { event.preventDefault(); return; }
+      this.hideTooltip();
       this.draggedSlot = source;
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('application/x-clone-human-slot', String(source));
@@ -131,6 +218,7 @@
       this.zoom = Math.max(1, Math.min(1.8, value));
       this.world.style.width = (this.zoom * 100) + '%';
       this.world.style.setProperty('--map-zoom', this.zoom);
+      this.positionTooltip();
     }
     render(state, moving, paused, connecting = false) {
       this.clearDrag();
@@ -183,6 +271,7 @@
         label.textContent = ['A', 'B', 'C'][i] + ' / ' + t(lane.name);
         labels.append(label);
       });
+      this.refreshTooltip();
     }
     renderSynergies(state, links) {
       this.synergies.replaceChildren();
@@ -219,5 +308,5 @@
       }
     }
   }
-  root.CloneHumanMap = { FactoryMap, machine, cloneArt, enemyArt, COLORS };
+  root.CloneHumanMap = { FactoryMap, machine, summary, cloneArt, enemyArt, COLORS };
 })(typeof window !== 'undefined' ? window : globalThis);
