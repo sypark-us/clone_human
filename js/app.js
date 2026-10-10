@@ -33,7 +33,7 @@
       if (index < 0) { toast('설비를 선택한 뒤 ‘지도에서 이동’을 눌러 이 땅으로 옮기세요.'); $('coordinates').textContent = (position.x + 1) + ', ' + (position.y + 1); return; }
       act(() => E.selectSlot(run, index));
     },
-    (index, x, y) => { act(() => E.relocateSlot(run, index, x, y), 'place'); moving = false; render(); toast('설비를 옮겼습니다. 지형 보너스를 확인하세요.'); },
+    (index, x, y) => { moving = false; connecting = false; act(() => { E.selectSlot(run, index); E.relocateSlot(run, index, x, y); }, 'place'); toast('설비를 옮겼습니다. 지형 보너스를 확인하세요.'); },
     (from, to) => {
       if (!E.canConnectSlots(run, from, to)) return;
       connecting = false; act(() => E.connectSlots(run, from, to), 'place'); toast('연결했습니다.');
@@ -268,7 +268,7 @@
     $('step-button').hidden = run.phase !== 'battle';
     $('step-button').disabled = !paused;
     $('build-status').textContent = t(run.phase === 'prepare' ? '건설 모드' : '관찰 모드');
-    $('map-instruction').textContent = t(connecting ? '빛나는 설비를 선택해 연결하세요. Esc로 취소합니다.' : moving ? '목적지를 선택하세요. 이미 설비가 있는 땅은 서로 위치를 바꿉니다.' : run.phase === 'prepare' ? '설비를 선택하세요. 배치와 연결은 선택 사항입니다.' : '컨베이어 순서로 생산됩니다. 전투 중에는 배치가 잠깁니다.');
+    $('map-instruction').textContent = t(connecting ? '빛나는 설비를 선택해 연결하세요. Esc로 취소합니다.' : moving ? '목적지를 선택하세요. 이미 설비가 있는 땅은 서로 위치를 바꿉니다.' : run.phase === 'prepare' ? '설비끼리 드래그해 위치 교환 · 클릭으로 선택' : '컨베이어 순서로 생산됩니다. 전투 중에는 배치가 잠깁니다.');
   }
   function render() {
     const focusedSlot = document.activeElement?.dataset.slot;
