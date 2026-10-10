@@ -35,16 +35,18 @@
     return '<svg viewBox="0 0 140 125" aria-hidden="true"><ellipse cx="70" cy="114" rx="53" ry="8" fill="#0a1112"/><path d="m36 63-17 10-9 35h13l13-19m68-26 17 10 9 35h-13l-13-19" fill="#684e48" stroke="#b98268" stroke-width="2"/><path d="m70 8 37 21 9 49-25 31H49L24 78l9-49z" fill="#3d3936" stroke="#927f64" stroke-width="2"/><path d="m38 31 32-17 32 17-8 24H46z" fill="#6c6250"/><path d="M39 63h62l-8 26H47z" fill="#1a2425"/><path d="M45 43h50l-8 14H53z" fill="#ed946c"/><path d="M51 72h38" stroke="#e7a17e" stroke-width="4"/><path d="M55 98v12m30-12v12M70 20v13" stroke="#a89070" stroke-width="4"/></svg>';
   }
   class FactoryMap {
-    constructor(container, engine, onSelect, onMove) {
+    constructor(container, engine, onSelect, onMove, onConnect) {
       this.container = container;
       this.engine = engine;
       this.onSelect = onSelect;
       this.onMove = onMove;
+      this.onConnect = onConnect;
       this.zoom = 1;
       this.moving = false;
-      container.innerHTML = '<div class="map-world"><div class="map-terrain"></div><div class="zone-wash zone-a"></div><div class="zone-wash zone-b"></div><div class="zone-wash zone-c"></div><div class="map-grid"></div><svg class="map-belts" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-tiles" role="grid" aria-label="공장 지도. 방향키로 탐색하고 Enter로 선택합니다."></div><div class="map-zone-labels" aria-hidden="true"></div></div>';
+      container.innerHTML = '<div class="map-world"><div class="map-terrain"></div><div class="zone-wash zone-a"></div><div class="zone-wash zone-b"></div><div class="zone-wash zone-c"></div><div class="map-grid"></div><svg class="map-belts" viewBox="0 0 960 560" aria-hidden="true"></svg><svg class="map-synergies" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-tiles" role="grid" aria-label="공장 지도. 방향키로 탐색하고 Enter로 선택합니다."></div><div class="map-zone-labels" aria-hidden="true"></div></div>';
       this.world = container.querySelector('.map-world');
       this.belts = container.querySelector('.map-belts');
+      this.synergies = container.querySelector('.map-synergies');
       this.tiles = container.querySelector('.map-tiles');
       for (let y = 0; y < 7; y++) {
         const row = document.createElement('div');
@@ -65,6 +67,10 @@
     interact(x, y) {
       if (!this.state || this.state.phase !== 'prepare') return;
       const index = this.state.positions.findIndex(pos => pos.x === x && pos.y === y);
+      if (this.connecting) {
+        if (index !== -1 && this.engine.canConnectSlots(this.state, this.state.selectedSlot, index)) this.onConnect?.(this.state.selectedSlot, index);
+        return;
+      }
       if (this.moving) this.onMove(this.state.selectedSlot, x, y);
       else if (index !== -1) this.onSelect(index);
       else this.onSelect(-1, { x, y });
@@ -84,13 +90,16 @@
       this.world.style.width = (this.zoom * 100) + '%';
       this.world.style.setProperty('--map-zoom', this.zoom);
     }
-    render(state, moving, paused) {
-      this.state = state; this.moving = moving;
+    render(state, moving, paused, connecting = false) {
+      this.state = state; this.moving = moving; this.connecting = connecting;
       this.tiles.setAttribute('aria-label', t('공장 지도. 방향키로 탐색하고 Enter로 선택합니다.'));
       const sector = this.engine.SECTORS.find(item => item.id === state.sectorId);
       this.world.classList.toggle('running', state.phase === 'battle' && !paused);
       this.world.classList.toggle('move-mode', moving);
+      this.world.classList.toggle('connect-mode', connecting);
       this.world.dataset.sector = state.sectorId;
+      const synergies = this.engine.getSynergies?.(state) || [];
+      const neighbors = new Set(synergies.filter(link => link.via === 'adjacent' && (link.from === state.selectedSlot || link.to === state.selectedSlot)).map(link => link.from === state.selectedSlot ? link.to : link.from));
       const active = new Set((state.lastTurn || []).map(event => event.slot));
       this.buttons.forEach((button, index) => {
         const x = index % 12, y = Math.floor(index / 12);
@@ -98,8 +107,11 @@
         const kind = slot === -1 ? null : state.slots[slot];
         const module = this.engine.MODULES[kind];
         const zone = sector?.lanes[Math.floor(x / 4)];
-        button.className = 'map-tile' + (slot !== -1 ? ' occupied' : '') + (slot === state.selectedSlot ? ' selected' : '') + (state.phase === 'battle' && active.has(slot) && !paused ? ' working' : '');
-        button.setAttribute('aria-label', (slot !== -1 ? t('슬롯 {slot}', { slot: slot + 1 }) + ' · ' + t(module?.name || '빈 설비') : t('빈 땅')) + ' · ' + (x + 1) + ',' + (y + 1) + ' · ' + t(zone?.name || ''));
+        const connectTarget = connecting && slot !== -1 && this.engine.canConnectSlots(state, state.selectedSlot, slot);
+        button.className = 'map-tile' + (slot !== -1 ? ' occupied' : '') + (slot === state.selectedSlot ? ' selected' : '') + (neighbors.has(slot) ? ' synergy-neighbor' : '') + (connectTarget ? ' connect-target' : '') + (state.phase === 'battle' && active.has(slot) && !paused ? ' working' : '');
+        button.setAttribute('aria-label', (slot !== -1 ? t('슬롯 {slot}', { slot: slot + 1 }) + ' · ' + t(module?.name || '빈 설비') : t('빈 땅')) + ' · ' + (x + 1) + ',' + (y + 1) + ' · ' + t(zone?.name || '') + (connectTarget ? ' · ' + t('연결 가능') : neighbors.has(slot) ? ' · ' + t('인접 효과') : ''));
+        if (connecting) button.setAttribute('aria-disabled', String(!connectTarget));
+        else button.removeAttribute('aria-disabled');
         button.setAttribute('aria-pressed', String(slot !== -1 && slot === state.selectedSlot));
         if (slot !== -1) {
           button.innerHTML = '<span class="machine-number">' + (slot + 1) + '</span>' + (kind ? machine(kind) : '<span class="empty-pad"><span>+</span></span>') + '<span class="machine-label">' + t(module?.name || '빈 설비') + '</span>';
@@ -119,6 +131,7 @@
           path.setAttribute('d', d); path.setAttribute('class', cls); this.belts.append(path);
         }
       });
+      this.renderSynergies(state, synergies);
       const labels = this.container.querySelector('.map-zone-labels');
       labels.replaceChildren();
       (sector?.lanes || []).forEach((lane, i) => {
@@ -126,6 +139,40 @@
         label.textContent = ['A', 'B', 'C'][i] + ' / ' + t(lane.name);
         labels.append(label);
       });
+    }
+    renderSynergies(state, links) {
+      this.synergies.replaceChildren();
+      const colors = { energy: '#f2cb79', clone: '#83e5b4', attack: '#f28c70' };
+      const names = { energy: '에너지 연결', clone: '복제 연결', attack: '공격 연결' };
+      const defs = document.createElementNS(NS, 'defs');
+      for (const [kind, color] of Object.entries(colors)) {
+        const marker = document.createElementNS(NS, 'marker');
+        marker.id = 'synergy-arrow-' + kind;
+        for (const [key, value] of Object.entries({ viewBox: '0 0 10 10', refX: '8', refY: '5', markerWidth: '4', markerHeight: '4', orient: 'auto-start-reverse' })) marker.setAttribute(key, value);
+        const arrow = document.createElementNS(NS, 'path');
+        arrow.setAttribute('d', 'M0 0 10 5 0 10z'); arrow.setAttribute('fill', color);
+        marker.append(arrow); defs.append(marker);
+      }
+      this.synergies.append(defs);
+      for (const link of links) {
+        const from = state.positions[link.from], to = state.positions[link.to];
+        const dx = to.x - from.x, dy = to.y - from.y;
+        const length = Math.hypot(dx, dy) || 1;
+        const sx = from.x * 80 + 40 + dx / length * 23;
+        const sy = from.y * 80 + 44 + dy / length * 23;
+        const ex = to.x * 80 + 40 - dx / length * 27;
+        const ey = to.y * 80 + 44 - dy / length * 27;
+        const d = link.via === 'connector' ? `M${sx} ${sy} Q${(sx + ex) / 2} ${Math.max(16, Math.min(sy, ey) - 64)} ${ex} ${ey}` : `M${sx} ${sy} L${ex} ${ey}`;
+        const path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('class', 'synergy-link synergy-' + link.kind + (link.via === 'connector' ? ' manual-connector' : ' adjacent-link'));
+        path.setAttribute('stroke', colors[link.kind]);
+        path.setAttribute('marker-end', 'url(#synergy-arrow-' + link.kind + ')');
+        path.dataset.from = link.from; path.dataset.to = link.to; path.dataset.via = link.via;
+        const title = document.createElementNS(NS, 'title');
+        title.textContent = t(names[link.kind]) + ' · ' + t(link.via === 'connector' ? '직접 연결' : '인접 효과');
+        path.append(title); this.synergies.append(path);
+      }
     }
   }
   root.CloneHumanMap = { FactoryMap, machine, cloneArt, enemyArt, COLORS };

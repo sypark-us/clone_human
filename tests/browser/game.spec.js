@@ -49,14 +49,14 @@ test('new player builds, relocates, starts, pauses and resumes the exact saved b
   await expect(page.locator('#primary-button')).toBeEnabled();
   await page.locator('#primary-button').click();
   await page.locator('#primary-button').click();
-  await expect(page.locator('#command-title')).toHaveText('생산 일시정지');
+  await expect(page.locator('#command-title')).toHaveText('전투 일시정지됨');
   await expect(page.locator('#move-button')).toBeDisabled();
   await page.locator('#step-button').click();
   const checkpoint = await state(page);
   expect(checkpoint.turn).toBe(1);
   await page.reload(); await page.locator('#resume-button').click();
   expect(await state(page)).toEqual(checkpoint);
-  await expect(page.locator('#command-title')).toHaveText('생산 일시정지');
+  await expect(page.locator('#command-title')).toHaveText('전투 일시정지됨');
   await page.clock.runFor(5000);
   expect(await state(page)).toEqual(checkpoint);
   await page.locator('#step-button').click();

@@ -21,7 +21,7 @@ function battle(slots, changes = {}) {
   s.sectorId = E.SECTORS[0].id;
   s.objectiveId = 'normal';
   s.enemyId = 'standard';
-  s.positions = Array.from({ length: 8 }, (_, i) => ({ x: i % 4, y: Math.floor(i / 4) }));
+  s.positions = Array.from({ length: 8 }, (_, i) => ({ x: (i % 2) * 2, y: Math.floor(i / 2) * 2 }));
   Object.assign(s, changes);
   E.startBattle(s);
   return s;
@@ -226,7 +226,7 @@ test('restored mid-battle state continues identically and bounded event logs sur
 
 test('validator rejects malformed numeric fields, ids, arrays, positions and result contradictions', () => {
   const E = engine(); const valid = E.createRun({ seed: 1 });
-  const mutations = [s => s.version = 2, s => s.energy = Infinity, s => s.units = -1, s => s.attack = 1.5,
+  const mutations = [s => s.version = 3, s => s.energy = Infinity, s => s.units = -1, s => s.attack = 1.5,
     s => s.seed = 'x', s => s.rngState = 0, s => s.wave = 9, s => s.phase = 'done', s => s.loadoutId = 'bad',
     s => s.selectedSlot = 8, s => s.slots[0] = 'constructor', s => s.slots.pop(), s => s.positions[0].x = 12,
     s => s.positions[0] = s.positions[1], s => s.offers = ['mine', 'mine', 'mine'], s => s.routes[0].enemyId = 'bad',

@@ -104,11 +104,11 @@ test('opening the desktop battle log pauses production and build tab explains co
   await page.locator('[data-layout-tab="build"]').click();
   await expect(page.locator('#layout-build-empty')).toBeVisible();
   await page.locator('#primary-button').click();
-  await expect(page.locator('#command-title')).toHaveText('생산 가동 중');
+  await expect(page.locator('#command-title')).toHaveText('교전 중');
   const before = await state(page);
   await page.locator('#layout-log-button').click();
   await expect(page.locator('#layout-log-dialog')).toBeVisible();
-  await expect(page.locator('#command-title')).toHaveText('생산 일시정지');
+  await expect(page.locator('#command-title')).toHaveText('전투 일시정지됨');
   await page.clock.runFor(4000);
   expect(await state(page)).toEqual(before);
 });
