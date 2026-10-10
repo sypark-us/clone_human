@@ -1,0 +1,228 @@
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./i18n-content.js'));
+  else root.CloneHumanI18n = factory(root.CloneHumanContent);
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (content) {
+  'use strict';
+
+  // Korean source messages are stable translation keys. Interpolation is text-only;
+  // renderers escape translated values when building markup.
+  const english = {
+    '당신의 공장이 마지막 희망입니다. 설비를 배치하고, 복제인간을 생산하고, 8개 구역을 돌파하는 싱글 플레이 공장 로그라이크.': 'Your factory is the last hope. Place machines, produce clones, and conquer eight sectors in a single-player factory roguelike.',
+    'CLONE HUMAN — 복제인간 전투 공장': 'CLONE HUMAN — Clone Factory',
+    '공장 지도로 건너뛰기': 'Skip to factory map',
+    'Clone Human 시작 화면': 'Clone Human home',
+    '복제인간 전투 공장': 'CLONE FACTORY',
+    '언어': 'Language',
+    '경로': 'Route',
+    '건설': 'Build',
+    '설비': 'Machine',
+    '확장': 'Upgrades',
+    '전투 결과': 'Battle report',
+    '닫기': 'Close',
+    '설비 선택 완료': 'Machine installed',
+    '다음 웨이브에서 새 설비를 선택할 수 있습니다.': 'Choose a new machine in the next wave.',
+    '로컬 저장': 'Local save',
+    '자동 저장됨': 'Autosaved',
+    '저장 불가': 'Cannot save',
+    '저장 확인 필요': 'Check saved game',
+    '이 브라우저에 진행 상황이 저장되었습니다.': 'Your progress is saved in this browser.',
+    '{error} 현재 탭에서는 계속 플레이할 수 있습니다.': '{error} You can keep playing in this tab.',
+    '진행 상황을 저장하지 못했습니다. 저장 공간과 브라우저 설정을 확인하세요. 현재 탭에서는 계속 플레이할 수 있지만, 닫으면 최근 진행이 사라집니다.': 'Progress could not be saved. Check your browser settings and storage. You can keep playing in this tab, but closing it will lose recent progress.',
+    '자동 저장에 실패했습니다. 상단의 저장 안내를 확인하세요.': 'Autosave failed. Check the storage notice at the top.',
+    '{error} 새 공장을 시작하면 새 저장 데이터로 교체됩니다.': '{error} Starting a new factory will replace this saved data.',
+    '음악 꺼짐': 'Music off',
+    '음악 켜짐': 'Music on',
+    '효과음 켜짐': 'SFX on',
+    '효과음 꺼짐': 'SFX off',
+    '플레이 가이드': 'How to play',
+    '생산 라인을 설계하고, 다음 공격에 대비하세요.': 'Design your production line and prepare for the next attack.',
+    '새 게임': 'New game',
+    '8개 웨이브 진행 상황': 'Eight-wave campaign progress',
+    '생산 구역': 'Factory floor',
+    '건설 모드': 'Build mode',
+    '관찰 모드': 'Watch mode',
+    '지도 축소': 'Zoom out',
+    '지도 확대': 'Zoom in',
+    '기본 배율': 'Reset zoom',
+    '공장 자원': 'Factory resources',
+    '에너지': 'Energy',
+    '복제인간': 'Clones',
+    '개체 공격력': 'Power per clone',
+    '처리한 피해': 'Damage dealt',
+    '← 좌우로 밀어 지도 탐색 · + 버튼으로 확대 →': '← Swipe to explore · Tap + to zoom →',
+    '설비를 선택해서 배치와 생산 순서를 조정하세요.': 'Select a machine to change its location and production order.',
+    '생산 순서': 'Production order',
+    '왼쪽부터 순서대로 실행': 'Runs from left to right',
+    '새 설비 선택': 'Choose a machine',
+    '다시 추첨 · 6 에너지': 'Reroll · 6 energy',
+    '지도에서 설치할 슬롯을 고른 뒤 설비를 선택하세요.': 'Select a slot on the map, then choose a machine.',
+    '방어선': 'Battlefront',
+    '전투 준비': 'Preparing',
+    '복제인간 대기 중': 'Clones on standby',
+    '적 체력': 'Enemy health',
+    '공장 관리': 'Factory management',
+    '다음 경로': 'Next route',
+    '지형과 적을 확인하고 목적지를 고르세요.': 'Compare terrain and enemies, then choose your destination.',
+    '슬롯 1': 'Slot 1',
+    '슬롯 {slot}': 'Slot {slot}',
+    '슬롯 {slot} · {zone} 구역': 'Slot {slot} · Zone {zone}',
+    '빈 설비': 'Empty slot',
+    '빈 땅': 'Empty ground',
+    '지도에서 이동': 'Move on map',
+    '이동 취소 · Esc': 'Cancel move · Esc',
+    '← 먼저 실행': '← Run earlier',
+    '나중에 실행 →': 'Run later →',
+    '이동은 지형 보너스를, 실행 순서는 연쇄 효과를 바꿉니다.': 'Location changes terrain bonuses. Order changes chain reactions.',
+    '공장 확장': 'Factory upgrades',
+    '지속 효과': 'Permanent effects',
+    '운영 메모': 'Factory tips',
+    '설비 도감 열기 ↗': 'Open machine guide ↗',
+    '전투 기록': 'Battle log',
+    '생산과 연쇄 효과 확인': 'Review production and chains',
+    '설비와 경로를 선택하세요.': 'Choose your machines and route.',
+    '속도': 'Speed',
+    '한 턴 진행': 'Step one turn',
+    '전투 시작': 'Start battle',
+    '생산을 설계하고. 연쇄를 만들고. 살아남으세요.': 'Design production. Build chains. Survive.',
+    '인류의 다음 장은': 'Humanity’s next chapter',
+    '당신의 공장에서.': 'starts in your factory.',
+    '광맥 위에 설비를 놓고, 복제인간을 생산하세요.': 'Build on rich deposits and bring your clones to life.',
+    '작은 생산 라인에서 시작해 8개 구역을 돌파하는': 'Grow a small production line across eight sectors',
+    '공장 건설 로그라이크.': 'in this factory-building roguelike.',
+    '8개 웨이브': '8 waves',
+    '12종 설비': '12 machines',
+    '나만의 생산 라인': 'Your production line',
+    '시작 설계 선택': 'Choose a starting design',
+    '이어하기 →': 'Continue →',
+    '지난 결과 보기 →': 'View last result →',
+    '새 공장 시작': 'Start a new factory',
+    '공장 가동 →': 'Launch factory →',
+    '진행 상황은 이 브라우저에 자동으로 저장됩니다.': 'Your progress is saved automatically in this browser.',
+    '처음이라면? 플레이 가이드 ↗': 'First time? Learn to play ↗',
+    '설계. 생산. 생존.': 'Design. Produce. Survive.',
+    '싱글 플레이 · 로컬 자동 저장': 'Single player · Local autosave',
+    '첫 번째 공장 가동하기': 'Launch your first factory',
+    '가이드 닫기': 'Close guide',
+    '설비를 선택하세요': 'Choose your machines',
+    '지도에 표시된 8개 설비 중 하나를 고르고 새 모듈을 설치합니다. 빈 슬롯에 설치하면 기존 설비를 유지할 수 있습니다.': 'Select one of the eight slots on the map and install a new machine. Use an empty slot to keep your existing machines.',
+    '지도 위에서 설계하세요': 'Design on the map',
+    '설비 선택 → ‘지도에서 이동’ → 목적지를 클릭합니다. A·B·C 구역마다 보너스가 다릅니다. 컨베이어는 생산 순서대로 자동 연결됩니다.': 'Select a machine, choose “Move on map”, then click its destination. Zones A, B, and C offer different bonuses. Conveyors connect automatically in production order.',
+    '경로를 고르고 전투하세요': 'Choose a route and fight',
+    '지역·적·보상을 비교해 경로를 선택하세요. 매 턴 설비가 순서대로 작동하고 복제인간이 공격합니다. 에너지를 먼저 생산해야 뒤쪽 설비가 작동합니다.': 'Compare terrain, enemies, and rewards to choose a route. Each turn, machines run in order, then your clones attack. Generate energy early so later machines can operate.',
+    '공장을 강화하세요': 'Upgrade your factory',
+    '승리하면 새 설비와 에너지를 얻습니다. 8번째 코어를 격파하면 승리! 전투를 일시정지하거나 한 턴씩 진행하며 설계를 확인할 수 있습니다.': 'Win battles to gain machines and energy. Destroy the eighth core to win the run! Pause or step through individual turns to inspect your design.',
+    '키보드': 'Keyboard',
+    '지도: 방향키 + Enter': 'Map: arrow keys + Enter',
+    'Space: 시작 / 일시정지': 'Space: start / pause',
+    'Esc: 이동 취소': 'Esc: cancel move',
+    '알겠습니다': 'Got it',
+    '설비 도감': 'Machine guide',
+    '도감 닫기': 'Close machine guide',
+    '12종의 설비를 조합해 나만의 연쇄를 만드세요.': 'Combine 12 machines to create your own chain reactions.',
+    '새 공장을 시작할까요?': 'Start a new factory?',
+    '현재 진행 중인 공장은 새 게임으로 교체됩니다.': 'Your current factory will be replaced by a new game.',
+    '계속 플레이': 'Keep playing',
+    '새 게임 시작': 'Start new game',
+    '생산': 'Production',
+    '연쇄': 'Chain',
+    '공격': 'Attack',
+    '설비를 선택한 뒤 ‘지도에서 이동’을 눌러 이 땅으로 옮기세요.': 'Select a machine, then choose “Move on map” to move it here.',
+    '설비를 옮겼습니다. 지형 보너스를 확인하세요.': 'Machine moved. Check its terrain bonus.',
+    '저장된 전투를 불러왔습니다. ‘전투 계속’을 누르면 재개됩니다.': 'Saved battle loaded. Choose “Resume battle” to continue.',
+    '최종 코어': 'Final core',
+    '구역 {wave}': 'Sector {wave}',
+    '+{amount} 에너지': '+{amount} energy',
+    '{limit}턴 제한': '{limit}-turn limit',
+    '새 설비를 선택하면 이 자리에 설치됩니다. 원하는 지형으로 먼저 이동할 수 있습니다.': 'Choose a new machine to install here. You can move this slot to another terrain zone first.',
+    '경로 선택 전 미리보기 · ': 'Route preview · ',
+    '슬롯 {slot}의 {name} 교체 · 기존 설비는 사라집니다.': 'Replace {name} in slot {slot}. The current machine will be removed.',
+    '슬롯 {slot}에 새 설비를 설치합니다.': 'Install a new machine in slot {slot}.',
+    '현재 설비 교체 →': 'Replace this machine →',
+    '선택한 슬롯에 설치 →': 'Install in selected slot →',
+    '최대 단계': 'Max level',
+    '일시정지': 'Paused',
+    '전투 일시정지': 'Pause battle',
+    '생산 가동 중': 'Production running',
+    '코어 격파': 'Core destroyed',
+    '방어선 붕괴': 'Battle lost',
+    '병력 없음': 'No clones',
+    '복제인간 {units}명 · 공격력 {attack}': '{units} clones · {attack} power each',
+    '방어막 {shield} · 턴당 병사 손실 {attack}': 'Shield {shield} · {attack} clones lost/turn',
+    '턴 {turn} / {limit}': 'Turn {turn} / {limit}',
+    '공장이 미래를 만들었습니다.': 'Your factory built the future.',
+    '구역 {wave} 돌파 완료': 'Sector {wave} cleared',
+    '생산 라인이 멈췄습니다.': 'Your production line has stopped.',
+    '적 코어를 격파했습니다. 생산과 연쇄 효과를 확인하세요.': 'Enemy core destroyed. Review your production and chain reactions.',
+    '제한 턴 안에 코어를 격파하지 못했습니다. 에너지 공급과 공격 설비의 순서를 바꿔 보세요.': 'The core survived the turn limit. Try changing your energy supply and machine order.',
+    '전투가 끝났습니다.': 'Battle complete.',
+    '다시 설계하세요': 'Redesign your factory',
+    '전투 턴': 'Battle turns',
+    '연쇄 이벤트': 'Chain events',
+    '최대 턴 연쇄': 'Peak chains/turn',
+    '기본 공격': 'Basic attack',
+    '{damage} 피해': '{damage} damage',
+    '이동할 땅을 선택하세요': 'Choose a destination',
+    '공장 설계 중': 'Designing your factory',
+    '다음 경로를 선택하세요.': 'Choose your next route.',
+    '새 설비를 설치하세요.': 'Install a new machine.',
+    '준비 완료. 생산 라인을 가동하세요.': 'Ready. Start your production line.',
+    '생산 일시정지': 'Production paused',
+    '한 턴씩 결과를 확인할 수 있습니다.': 'Step through one turn at a time.',
+    '설비가 순서대로 작동합니다.': 'Machines run in production order.',
+    '전투 계속': 'Resume battle',
+    '다음 구역으로': 'On to the next sector',
+    '새 설비를 확보하고 공장을 확장하세요.': 'Gain new machines and expand your factory.',
+    '다음 웨이브': 'Next wave',
+    '8개 구역 돌파 완료': 'All eight sectors cleared',
+    '이번 도전 종료': 'Run complete',
+    '다른 설계로 새로운 공장을 시작하세요.': 'Start a new factory with a different design.',
+    '다시 설계': 'New design',
+    '목적지를 선택하세요. 이미 설비가 있는 땅은 서로 위치를 바꿉니다.': 'Choose a destination. Occupied slots swap positions.',
+    '설비 선택 → 이동 · 지형 보너스에 맞춰 배치하세요.': 'Select a machine → Move · Match machines to terrain bonuses.',
+    '컨베이어 순서로 생산됩니다. 전투 중에는 배치가 잠깁니다.': 'Production follows the conveyors. Layout is locked during battle.',
+    '설비를 설치했습니다. 지도에서 위치와 연결을 확인하세요.': 'Machine installed. Check its location and connections on the map.',
+    '목적지를 클릭하세요. 방향키와 Enter로도 이동할 수 있습니다.': 'Click a destination, or use the arrow keys and Enter.',
+    '이 브라우저에서 음악을 재생할 수 없습니다. 게임은 계속할 수 있습니다.': 'Music is unavailable in this browser. You can keep playing.',
+    ' · 추천': ' · Recommended',
+    '다른 시작 설계 3개': '3 more starting designs',
+    '공장 지도. 방향키로 탐색하고 Enter로 선택합니다.': 'Factory map. Navigate with arrow keys and select with Enter.'
+  };
+  let language = 'ko';
+  let bindings = [];
+
+  function t(source, params = {}) {
+    const text = language === 'en'
+      ? (Object.hasOwn(english, source) ? english[source] : content.translate(source, language))
+      : source;
+    return String(text).replace(/\{(\w+)\}/g, (match, key) => Object.hasOwn(params, key) ? String(params[key]) : match);
+  }
+  function setLanguage(value) { language = value === 'en' ? 'en' : 'ko'; }
+
+  // Capture only authored static text, once, before the controller renders data.
+  // Keeping text nodes preserves nested markup and existing event listeners.
+  function capturePage(doc) {
+    bindings = [];
+    const walker = doc.createTreeWalker(doc.documentElement, 4);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (!/[\uac00-\ud7a3]/.test(node.nodeValue) || node.parentElement.closest('script,style,noscript,option')) continue;
+      bindings.push({ node, source: node.nodeValue });
+    }
+    doc.querySelectorAll('[aria-label], [title], meta[name="description"]').forEach(element => {
+      for (const attribute of ['aria-label', 'title', 'content']) {
+        if (element.hasAttribute(attribute)) bindings.push({ element, attribute, source: element.getAttribute(attribute) });
+      }
+    });
+  }
+  function applyPage(doc) {
+    doc.documentElement.lang = language;
+    for (const binding of bindings) {
+      const source = binding.source;
+      // Preserve authored spacing around inline controls and nested spans.
+      const value = source.replace(/^(\s*)([\s\S]*?)(\s*)$/, (_, start, text, end) => start + t(text) + end);
+      if (binding.node) binding.node.nodeValue = value;
+      else binding.element.setAttribute(binding.attribute, value);
+    }
+  }
+  return { t, setLanguage, capturePage, applyPage, getLanguage: () => language };
+});

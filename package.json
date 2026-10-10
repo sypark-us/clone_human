@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node --test tests/*.test.js",
     "start": "python3 -m http.server 4187 --bind 127.0.0.1",
-    "check": "node --check js/engine.js && node --check js/storage.js && node --check js/audio.js && node --check js/map.js && node --check js/app.js",
+    "check": "node --check js/engine.js && node --check js/storage.js && node --check js/audio.js && node --check js/i18n-content.js && node --check js/i18n.js && node --check js/map.js && node --check js/layout.js && node --check js/app.js",
     "test:browser": "playwright test",
     "verify": "npm run check && npm test && npm run test:browser"
   },

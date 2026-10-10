@@ -11,7 +11,10 @@
   <script defer src="js/engine.js"></script>
   <script defer src="js/storage.js"></script>
   <script defer src="js/audio.js"></script>
+  <script defer src="js/i18n-content.js"></script>
+  <script defer src="js/i18n.js"></script>
   <script defer src="js/map.js"></script>
+  <script defer src="js/layout.js"></script>
   <script defer src="js/app.js"></script>
 </head>
 <body>
@@ -22,6 +25,7 @@
       <span>CLONE HUMAN<small>복제인간 전투 공장</small></span>
     </a>
     <div class="top-actions">
+      <label class="language-control"><span class="sr-only">언어</span><select id="language-select"><option value="ko" lang="ko">한국어</option><option value="en" lang="en">English</option></select></label>
       <span id="save-status" class="save-status" role="status">로컬 저장</span>
       <button id="music-button" class="quiet-button" aria-pressed="false">음악 꺼짐</button>
       <button id="sfx-button" class="quiet-button" aria-pressed="true">효과음 켜짐</button>

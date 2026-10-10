@@ -1,6 +1,10 @@
 # CLONE HUMAN — 복제인간 전투 공장
 
-지도 위에 설비를 배치하고, 복제인간을 생산하며, 8개 웨이브를 돌파하는 한국어 싱글 플레이 공장 로그라이크입니다. GitHub Pages에서 실행되는 정적 웹 게임으로, 계정이나 별도 서버가 필요하지 않습니다.
+지도 위에 설비를 배치하고, 복제인간을 생산하며, 8개 웨이브를 돌파하는 영어·한국어 싱글 플레이 공장 로그라이크입니다. GitHub Pages에서 실행되는 정적 웹 게임으로, 계정이나 별도 서버가 필요하지 않습니다.
+
+Use the **한국어 / English** selector in the header to switch languages at any time. Your choice is saved in this browser; existing games and battle logs work in either language.
+
+On desktop and laptop screens, the factory map, resources, production order, battle status, and action controls fit in one gameplay screen. Use **Route / Build / Machine / Upgrades** tabs for factory management. Battle logs and results open in dialogs. Phones and small windows keep the scrolling layout; longer details can scroll inside their panel or dialog.
 
 ## 플레이
 
@@ -22,6 +26,8 @@
 
 ### 조작과 음악
 
+- 상단 **한국어 / English**에서 언어를 바꿉니다. 진행 상황과 시작 설계는 유지되며, 선택한 언어가 저장됩니다.
+- 데스크톱·노트북에서는 지도와 전투 상태, 조작 버튼을 한 화면에 표시합니다. **경로 / 건설 / 설비 / 확장** 탭으로 관리하고, 전투 기록과 결과는 팝업에서 확인합니다.
 - 클릭/탭으로 선택·배치합니다. 좁은 화면에서는 지도 안을 좌우로 스크롤합니다.
 - 지도에서 **방향키**로 이동하고 **Enter**로 선택할 수 있습니다. **Esc**는 배치 이동이나 대화상자를 취소합니다.
 - 입력 컨트롤 밖에서 **Space**로 전투 시작/일시정지합니다.
@@ -55,9 +61,9 @@ npx playwright install chromium
 npm run verify
 ```
 
-- `npm test`: 엔진·저장·오디오 회귀 테스트
+- `npm test`: 엔진·저장·오디오·번역 회귀 테스트
 - `npm run check`: 모든 게임 스크립트 구문 검사
-- `npm run test:browser`: Chromium 브라우저 플레이 테스트. 지도 조작, 8웨이브 완료, 새로고침/재개, 모바일 저장 오류, 손상 데이터 복구, 음악을 검사합니다.
+- `npm run test:browser`: Chromium 브라우저 플레이 테스트. 영어·한국어 8웨이브 완료, 언어 전환, 노트북 화면 배치, 지도 조작, 새로고침/재개, 모바일 저장 오류, 손상 데이터 복구, 음악을 검사합니다.
 - [GitHub Actions 템플릿](docs/github-actions.yml)을 `.github/workflows/test.yml`로 복사하면 push와 PR에 같은 검증을 실행할 수 있습니다. 워크플로 파일을 추가할 권한이 있는 GitHub 연결이 필요합니다.
 
 자동 검증은 Chromium 데스크톱과 모바일 크기에서 수행합니다. 실제 iOS/Android 기기 음질·터치 감각과 장기적인 재미/난이도는 추가 플레이테스트 영역입니다.
@@ -68,6 +74,9 @@ npm run verify
 | --- | --- |
 | `js/engine.js` | 결정론적 게임 규칙, 상태 전이, 지형 효과, 저장 상태 검증 |
 | `js/storage.js` | 버전별 로컬 저장 및 오류 처리 |
+| `js/i18n.js` | 화면 문구, 언어 전환, 정적 텍스트와 접근성 레이블 번역 |
+| `js/i18n-content.js` | 게임 설명, 힌트, 기존 저장 기록의 영어 번역 |
+| `js/layout.js` | 데스크톱 대시보드, 관리 탭, 전투 기록·결과 팝업 |
 | `js/map.js` | 지도, 설비 그림, 컨베이어, 키보드 지도 탐색 |
 | `js/audio.js` | 로컬 합성 음악과 효과음, 독립 음량 버스 |
 | `js/app.js` | 화면, 조작, 타이머, 자동 저장 연결 |
