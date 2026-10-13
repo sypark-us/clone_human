@@ -33,7 +33,7 @@ test('exports the documented browser and CommonJS API with all twelve module con
   vm.runInNewContext(fs.readFileSync(enginePath, 'utf8'), context);
   assert.equal(typeof context.CloneHumanEngine.createRun, 'function');
   assert.equal(Object.keys(E.MODULES).length, 12);
-  for (const method of ['createRun', 'selectSlot', 'installModule', 'moveSlot', 'relocateSlot', 'chooseRoute', 'reroll', 'buyUpgrade', 'startBattle', 'tick', 'nextWave', 'canStart', 'getBattlePreview', 'getHints', 'validateRun']) assert.equal(typeof E[method], 'function', method);
+  for (const method of ['createRun', 'selectSlot', 'installModule', 'moveSlot', 'relocateSlot', 'chooseRoute', 'reroll', 'buyUpgrade', 'getUpgradeCost', 'startBattle', 'tick', 'nextWave', 'canStart', 'getBattlePreview', 'getHints', 'validateRun']) assert.equal(typeof E[method], 'function', method);
   for (const module of Object.values(E.MODULES)) for (const key of ['id', 'name', 'description', 'kind']) assert.equal(typeof module[key], 'string');
   for (const loadout of E.LOADOUTS) for (const key of ['id', 'name', 'description', 'slots', 'energy', 'units', 'attack']) assert.ok(key in loadout);
 });
@@ -119,13 +119,23 @@ test('generator grants exactly +2 energy per upgrade level each turn', () => {
   E.tick(s); assert.equal(s.energy, 14);
 });
 
-test('upgrades pay once, stop at their cap and refuse unaffordable purchases', () => {
+test('factory upgrades cost 12, 18 then 24 E per level, charge that cost, stop at their cap and refuse unaffordable purchases', () => {
   const E = engine(); const s = ready(); s.energy = 100;
-  const upgrade = E.UPGRADES.find(u => u.id === 'power');
-  for (let i = 0; i < upgrade.maxLevel + 2; i++) E.buyUpgrade(s, 'power');
-  assert.equal(s.upgrades.power, upgrade.maxLevel);
-  assert.equal(s.energy, 100 - upgrade.cost * upgrade.maxLevel);
-  s.energy = 0; E.buyUpgrade(s, 'training'); assert.equal(s.upgrades.training, 0);
+  for (const upgrade of E.UPGRADES) assert.equal(E.getUpgradeCost(s, upgrade.id), 12, upgrade.id + ' first level');
+  for (const [level, cost] of [[0, 12], [1, 18], [2, 24]]) {
+    assert.equal(s.upgrades.power, level);
+    assert.equal(E.getUpgradeCost(s, 'power'), cost);
+    const before = s.energy; E.buyUpgrade(s, 'power');
+    assert.equal(before - s.energy, cost, 'level ' + (level + 1) + ' charges its own cost');
+  }
+  assert.equal(E.getUpgradeCost(s, 'power'), null, 'no price at the cap');
+  E.buyUpgrade(s, 'power'); E.buyUpgrade(s, 'power');
+  assert.equal(s.upgrades.power, 3); assert.equal(s.energy, 100 - 54);
+  assert.equal(E.getUpgradeCost(s, '__proto__'), null); assert.equal(E.getUpgradeCost(s, 'unknown'), null);
+  s.energy = 11; E.buyUpgrade(s, 'training'); assert.equal(s.upgrades.training, 0); assert.equal(s.energy, 11);
+  s.upgrades.fort = 1; s.energy = 17; E.buyUpgrade(s, 'fort'); assert.equal(s.upgrades.fort, 1, 'level 2 needs 18 E');
+  s.energy = 18; E.buyUpgrade(s, 'fort'); assert.equal(s.upgrades.fort, 2); assert.equal(s.energy, 0);
+  assert.equal(E.validateRun(s), true);
 });
 
 test('mine and clone terrain bonuses follow the machine position', () => {
@@ -280,6 +290,21 @@ test('defense objective accepts an early kill and pays its described reward', ()
   assert.equal(s.energy - before, s.report.reward);
 });
 
+test('route objectives trade safety for pay: normal 12 turns +6, rush 8 turns +12, defense 12 turns +12 with two extra clone losses', () => {
+  const E = engine();
+  const table = Object.fromEntries(Object.values(E.OBJECTIVES).map(o => [o.id, [o.limit, o.reward]]));
+  assert.deepEqual(table, { normal: [12, 6], rush: [8, 12], survive: [12, 12] });
+  const preview = objectiveId => { const s = ready(); s.objectiveId = objectiveId; return E.getBattlePreview(s); };
+  assert.equal(preview('survive').attack - preview('normal').attack, 2);
+  assert.equal(preview('rush').attack, preview('normal').attack);
+  for (const objectiveId of Object.keys(E.OBJECTIVES)) {
+    const s = battle([], { objectiveId, units: 100 }); const before = s.energy;
+    E.tick(s);
+    assert.equal(s.report.reward, E.OBJECTIVES[objectiveId].reward + 11, objectiveId + ' one-turn kill');
+    assert.equal(s.energy - before, s.report.reward); assert.equal(E.validateRun(s), true);
+  }
+});
+
 test('rush limit produces explicit loss with a matching serializable report', () => {
   const E = engine(); const s = battle([], { objectiveId: 'rush', units: 0 });
   for (let i = 0; i < 8; i++) E.tick(s);
@@ -400,7 +425,7 @@ function playReferenceStrategy(seed, loadout) {
     }
     E.installModule(s, offer);
     const desired = { power: 1, training: 2, fort: 3 };
-    for (const id of ['fort', 'training', 'power']) while (s.energy >= 20 && s.upgrades[id] < desired[id]) E.buyUpgrade(s, id);
+    for (const id of ['fort', 'training', 'power']) while (s.energy >= E.getUpgradeCost(s, id) + 8 && s.upgrades[id] < desired[id]) E.buyUpgrade(s, id);
     valid(); E.startBattle(s); valid();
     while (s.phase === 'battle') { E.tick(s); turns++; valid(); }
     if (s.phase === 'report') { E.nextWave(s); valid(); }

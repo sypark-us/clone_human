@@ -69,15 +69,18 @@
       { name: '동력 핵심 · 채굴 +4', kind: 'mine', value: 4, description: '이 구역의 채굴기는 실행마다 에너지 +4.' }
     ] }
   ]);
+  // Safety for pay: normal is the long, half-paid route; rush and defense pay
+  // double, rush with a shorter limit and defense with harder retaliation.
   const OBJECTIVES = freeze({
-    normal: { id: 'normal', name: '코어 정복', description: '12턴 안에 격파. 에너지 +3과 속도 보너스.', limit: 12, reward: 3 },
-    rush: { id: 'rush', name: '긴급 돌파', description: '8턴 안에 격파. 에너지 +12와 속도 보너스.', limit: 8, reward: 12 },
-    survive: { id: 'survive', name: '방어선 돌파', description: '병사 손실 +1. 12턴 안에 격파하면 에너지 +10과 속도 보너스. 빠른 격파도 성공.', limit: 12, reward: 10 }
+    normal: { id: 'normal', name: '코어 정복', description: '12턴 안에 격파. 에너지 +6과 속도 보너스.', limit: 12, reward: 6, losses: 0 },
+    rush: { id: 'rush', name: '긴급 돌파', description: '8턴 안에 격파. 에너지 +12와 속도 보너스.', limit: 8, reward: 12, losses: 0 },
+    survive: { id: 'survive', name: '방어선 돌파', description: '병사 손실 +2. 12턴 안에 격파하면 에너지 +12와 속도 보너스. 빠른 격파도 성공.', limit: 12, reward: 12, losses: 2 }
   });
+  // Prices come from getUpgradeCost: each level costs half a base more than the last.
   const UPGRADES = freeze([
-    { id: 'power', name: '발전기 확장', description: '단계마다 매 턴 에너지 +2.', cost: 12, maxLevel: 3 },
-    { id: 'training', name: '복제 배양조', description: '단계마다 매 턴 병사 +1. 복제 반응은 발동하지 않음.', cost: 12, maxLevel: 3 },
-    { id: 'fort', name: '방어벽 증설', description: '단계마다 턴당 병사 손실 -1.', cost: 12, maxLevel: 3 }
+    { id: 'power', name: '발전기 확장', description: '단계마다 매 턴 에너지 +2.', baseCost: 12, maxLevel: 3 },
+    { id: 'training', name: '복제 배양조', description: '단계마다 매 턴 병사 +1. 복제 반응은 발동하지 않음.', baseCost: 12, maxLevel: 3 },
+    { id: 'fort', name: '방어벽 증설', description: '단계마다 턴당 병사 손실 -1.', baseCost: 12, maxLevel: 3 }
   ]);
   const ENEMIES = freeze({
     standard: { id: 'standard', name: '감시 코어', description: '기본 전투 패턴. 생산망을 시험하세요.' },
@@ -276,7 +279,7 @@
   function getBattlePreview(state) {
     const maxHp = Math.round(WAVE_HP[state.wave - 1] * (state.enemyId === 'swarm' ? 0.75 : 1));
     const defense = state.slots.reduce((value, id, slot) => value + (DEFENDERS.includes(id) ? bonus(state, 'defense', slot) : 0), 0);
-    const attack = Math.max(0, Math.ceil(state.wave * 0.5) + (state.enemyId === 'swarm' ? 2 : 0) + (state.objectiveId === 'survive' ? 1 : 0) - state.upgrades.fort - defense);
+    const attack = Math.max(0, Math.ceil(state.wave * 0.5) + (state.enemyId === 'swarm' ? 2 : 0) + OBJECTIVES[state.objectiveId].losses - state.upgrades.fort - defense);
     if (state.phase !== 'prepare') return { hp: state.hp, maxHp: state.maxHp, shield: state.shield, attack: state.enemyAttack, limit: OBJECTIVES[state.objectiveId].limit };
     return { hp: maxHp, maxHp, shield: state.wave >= 4 ? state.wave * 4 : 0, attack, limit: OBJECTIVES[state.objectiveId].limit };
   }
@@ -370,10 +373,16 @@
     log(state, '모듈 다시 뽑기: 에너지 -6.');
     return state;
   }
-  function buyUpgrade(state, id) {
+  // Price of the next level (12, 18, then 24 E), or null at the cap.
+  function getUpgradeCost(state, id) {
     const upgrade = UPGRADES.find(item => item.id === id);
-    if (!preparing(state) || !upgrade || state.energy < upgrade.cost || state.upgrades[id] >= upgrade.maxLevel) return state;
-    state.energy -= upgrade.cost;
+    if (!state || !state.upgrades || !upgrade || !integer(state.upgrades[id], 0, upgrade.maxLevel - 1)) return null;
+    return upgrade.baseCost * (state.upgrades[id] + 2) / 2;
+  }
+  function buyUpgrade(state, id) {
+    const upgrade = UPGRADES.find(item => item.id === id), cost = getUpgradeCost(state, id);
+    if (!preparing(state) || cost === null || state.energy < cost) return state;
+    state.energy -= cost;
     state.upgrades[id]++;
     log(state, upgrade.name + ' ' + state.upgrades[id] + '단계.');
     return state;
@@ -614,5 +623,5 @@
     } catch (_) { return false; }
   }
 
-  return Object.freeze({ MODULES, LOADOUTS, SECTORS, OBJECTIVES, UPGRADES, ENEMIES, createRun, selectSlot, installModule, moveSlot, relocateSlot, chooseRoute, reroll, buyUpgrade, getMachineLevel, getModuleStats, getMachineUpgrade, upgradeMachine, startBattle, tick, nextWave, canStart, getBattlePreview, getHints, validateRun, getSynergies, getSynergyBonus, canConnectSlots, connectSlots, disconnectSlots, getTurnSummary });
+  return Object.freeze({ MODULES, LOADOUTS, SECTORS, OBJECTIVES, UPGRADES, ENEMIES, createRun, selectSlot, installModule, moveSlot, relocateSlot, chooseRoute, reroll, buyUpgrade, getUpgradeCost, getMachineLevel, getModuleStats, getMachineUpgrade, upgradeMachine, startBattle, tick, nextWave, canStart, getBattlePreview, getHints, validateRun, getSynergies, getSynergyBonus, canConnectSlots, connectSlots, disconnectSlots, getTurnSummary });
 });

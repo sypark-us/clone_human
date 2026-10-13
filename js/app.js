@@ -238,9 +238,9 @@
   }
   function renderUpgrades() {
     $('upgrades').innerHTML = E.UPGRADES.map(upgrade => {
-      const level = run.upgrades[upgrade.id];
-      const disabled = run.phase !== 'prepare' || run.energy < upgrade.cost || level >= upgrade.maxLevel;
-      return '<button class="upgrade" data-upgrade="' + upgrade.id + '" ' + (disabled ? 'disabled' : '') + '><span><strong>' + escape(t(upgrade.name)) + '<span class="upgrade-level">Lv.' + level + '/' + upgrade.maxLevel + '</span></strong><small>' + escape(t(upgradeSummaries[upgrade.id])) + '</small></span><span class="upgrade-price">' + (level >= upgrade.maxLevel ? escape(t('최대 단계')) : upgrade.cost + ' E') + '</span></button>';
+      const level = run.upgrades[upgrade.id], cost = E.getUpgradeCost(run, upgrade.id);
+      const disabled = run.phase !== 'prepare' || cost === null || run.energy < cost;
+      return '<button class="upgrade" data-upgrade="' + upgrade.id + '" ' + (disabled ? 'disabled' : '') + '><span><strong>' + escape(t(upgrade.name)) + '<span class="upgrade-level">Lv.' + level + '/' + upgrade.maxLevel + '</span></strong><small>' + escape(t(upgradeSummaries[upgrade.id])) + '</small></span><span class="upgrade-price">' + (cost === null ? escape(t('최대 단계')) : cost + ' E') + '</span></button>';
     }).join('');
   }
   function renderBattle() { window.CloneHumanCombat.render(run, E.getBattlePreview(run), paused); }

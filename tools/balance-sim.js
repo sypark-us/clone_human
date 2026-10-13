@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 'use strict';
 // Deterministic balance simulator over the real engine. Bots play whole runs;
-// the CLI prints per-loadout win rate, battle length and wave reached.
+// the CLI prints per-loadout win rate, battle length and wave reached, then
+// route picks, preparation spend and energy banked on reaching wave 8.
 //   node tools/balance-sim.js [--policy lazy|lookahead|both] [--seeds 300] [--seed-base 1]
-//                             [--loadout id] [--prefer id] [--avoid id] [--no-upgrades] [--json]
+//                             [--loadout id] [--prefer id] [--avoid id] [--no-upgrades]
+//                             [--route normal|rush|survive|best] [--json]
+// --route X takes the route with objective X whenever one is offered (else the
+// policy's own choice); best (the default) leaves the choice to the policy.
 const path = require('node:path');
 const E = require(path.join(__dirname, '../js/engine.js'));
 
@@ -32,6 +36,11 @@ function candidateOffers(offers, options) {
   const allowed = offers.filter(id => id !== options.avoid);
   return allowed.length ? allowed : offers;
 }
+// Route indexes a policy may take: the forced objective when offered, else both.
+function routeChoices(s, options) {
+  const forced = s.routes.findIndex(route => route.objectiveId === options.route);
+  return forced >= 0 ? [forced] : [0, 1];
+}
 function placeInZone(s, slot, zone) {
   const used = new Set(s.positions.map(p => p.x + ':' + p.y));
   for (let x = zone * 4; x < zone * 4 + 4; x++) for (let y = 0; y < 7; y++) {
@@ -40,10 +49,10 @@ function placeInZone(s, slot, zone) {
   return false;
 }
 
-// Careless player: first route, first offer into the selected plot (the first
+// Careless player: first (or forced) route, first offer into the selected plot (the first
 // empty one, as nextWave preselects), never moves, upgrades or rerolls.
 function prepareLazy(s, options) {
-  E.chooseRoute(s, 0);
+  E.chooseRoute(s, routeChoices(s, options)[0]);
   const empty = s.slots.indexOf(null);
   if (empty >= 0) E.selectSlot(s, empty);
   E.installModule(s, pickOffer(s.offers, options));
@@ -58,7 +67,7 @@ function prepareLookahead(s, options) {
     const score = evaluate(candidate);
     if (score > bestScore) { bestScore = score; best = candidate; }
   };
-  for (let route = 0; route < 2; route++) {
+  for (const route of routeChoices(s, options)) {
     const base = copy(s);
     E.chooseRoute(base, route);
     const empty = base.slots.indexOf(null);
@@ -103,13 +112,18 @@ function playRun(seed, loadout, options = {}) {
   const prepare = POLICIES[options.policy || 'lazy'];
   let s = E.createRun({ seed, loadout });
   const battles = [];
+  let banked = null, spent = 0;
   while (s.phase !== 'won' && s.phase !== 'lost') {
     if (s.phase === 'report') { E.nextWave(s); continue; }
+    if (s.wave === 8) banked = s.energy;
+    const offered = s.routes.map(route => route.objectiveId), before = s.energy;
     s = prepare(s, options);
+    // Installing and choosing a route are free, so the drop is purchases.
+    spent += before - s.energy;
     playBattle(s);
-    battles.push({ wave: s.wave, turns: s.turn, win: s.phase !== 'lost' });
+    battles.push({ wave: s.wave, turns: s.turn, win: s.phase !== 'lost', objective: s.objectiveId, offered });
   }
-  return { seed, loadout, won: s.phase === 'won', wave: s.wave, battles };
+  return { seed, loadout, won: s.phase === 'won', wave: s.wave, battles, banked, spent };
 }
 
 function median(values) {
@@ -123,7 +137,17 @@ function summarize(runs) {
   const reached = {};
   for (const run of runs) reached[run.wave] = (reached[run.wave] || 0) + 1;
   const wins = runs.filter(run => run.won).length;
-  return { runs: runs.length, wins, winRate: runs.length ? wins / runs.length : 0, medianTurns: median(turns), medianTurnsByWave: byWave, meanWave: runs.reduce((sum, run) => sum + run.wave, 0) / (runs.length || 1), reached };
+  const battles = runs.flatMap(run => run.battles), mean = list => list.length ? list.reduce((a, b) => a + b, 0) / list.length : null;
+  // picks: share of all route choices; pickRate: share of the offers of that objective taken.
+  const picks = {}, pickRate = {};
+  for (const id of Object.keys(E.OBJECTIVES)) {
+    const offered = battles.filter(b => b.offered.includes(id)).length, taken = battles.filter(b => b.objective === id).length;
+    picks[id] = battles.length ? taken / battles.length : 0;
+    pickRate[id] = offered ? taken / offered : 0;
+  }
+  const banked = runs.map(run => run.banked).filter(value => value !== null);
+  return { runs: runs.length, wins, winRate: runs.length ? wins / runs.length : 0, medianTurns: median(turns), medianTurnsByWave: byWave, meanWave: runs.reduce((sum, run) => sum + run.wave, 0) / (runs.length || 1), reached,
+    picks, pickRate, meanBanked8: mean(banked), meanSpent: mean(runs.map(run => run.spent)) };
 }
 function seedList(count, base = 1) { return Array.from({ length: count }, (_, index) => base + index); }
 function simulate(options = {}) {
@@ -142,8 +166,11 @@ function formatTable(title, result) {
   const pct = value => (value * 100).toFixed(1).padStart(5) + '%';
   const row = (id, r) => id.padEnd(10) + ' ' + pct(r.winRate) + '  ' + String(r.medianTurns).padStart(4) + '   ' +
     r.medianTurnsByWave.map(v => v === null ? ' -' : String(v).padStart(2)).join(' ') + '   ' + r.meanWave.toFixed(2);
+  const a = result.aggregate, fixed = value => value === null ? '-' : value.toFixed(1);
   return [title, 'loadout      win%  turns  median by wave 1..8      mean wave',
-    ...Object.entries(result.perLoadout).map(([id, r]) => row(id, r)), row('ALL', result.aggregate)].join('\n');
+    ...Object.entries(result.perLoadout).map(([id, r]) => row(id, r)), row('ALL', result.aggregate),
+    'route picks ' + Object.keys(a.picks).map(id => id + ' ' + pct(a.picks[id]).trim() + ' (taken ' + pct(a.pickRate[id]).trim() + ' of offers)').join(', '),
+    'mean spend per run ' + fixed(a.meanSpent) + ' E, mean energy on reaching wave 8 ' + fixed(a.meanBanked8) + ' E'].join('\n');
 }
 
 module.exports = { POLICIES, playRun, simulate, summarize, report, seedList, median, formatTable, prepareLazy, prepareLookahead };
@@ -154,7 +181,7 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const flag = name => args.includes('--' + name);
   const value = (name, fallback) => { const i = args.indexOf('--' + name); return i >= 0 ? args[i + 1] : fallback; };
-  const base = { seeds: Number(value('seeds', 300)), seedBase: Number(value('seed-base', 1)), prefer: value('prefer'), avoid: value('avoid'), upgrades: !flag('no-upgrades') };
+  const base = { seeds: Number(value('seeds', 300)), seedBase: Number(value('seed-base', 1)), prefer: value('prefer'), avoid: value('avoid'), upgrades: !flag('no-upgrades'), route: value('route', 'best') };
   const policyArg = value('policy', 'both');
   const policies = policyArg === 'both' ? ['lazy', 'lookahead'] : [policyArg];
   const loadouts = value('loadout') ? [value('loadout')] : E.LOADOUTS.map(loadout => loadout.id);
@@ -176,7 +203,7 @@ if (require.main === module) {
     for (const policy of policies) output[policy] = report(Object.fromEntries(loadouts.map(id => [id, results[policy + ':' + id] || []])));
     if (flag('json')) console.log(JSON.stringify(output, null, 2));
     else {
-      const label = ' seeds=' + base.seeds + ' base=' + base.seedBase + (base.prefer ? ' prefer=' + base.prefer : '') + (base.avoid ? ' avoid=' + base.avoid : '') + (base.upgrades ? '' : ' no-upgrades');
+      const label = ' seeds=' + base.seeds + ' base=' + base.seedBase + (base.prefer ? ' prefer=' + base.prefer : '') + (base.avoid ? ' avoid=' + base.avoid : '') + (base.upgrades ? '' : ' no-upgrades') + ' route=' + base.route;
       for (const policy of policies) console.log(formatTable('[' + policy + ']' + label, output[policy]) + '\n');
       console.log('elapsed ' + ((Date.now() - started) / 1000).toFixed(1) + 's');
     }

@@ -84,7 +84,7 @@ for (const language of ['ko', 'en']) test('eight-wave campaign completes through
     for (const id of ['fort', 'training', 'power']) {
       const desired = { power: 1, training: 2, fort: 3 };
       s = await state(page);
-      while (s.energy >= 20 && s.upgrades[id] < desired[id]) {
+      while (s.energy >= E.getUpgradeCost(s, id) + 8 && s.upgrades[id] < desired[id]) {
         await page.locator(`[data-upgrade="${id}"]`).click(); s = await state(page);
       }
     }

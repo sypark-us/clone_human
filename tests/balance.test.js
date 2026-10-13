@@ -63,6 +63,23 @@ test('lookahead bot wins at least 80% of runs', () => {
   assert.ok(result.aggregate.winRate >= 0.80, sim.formatTable('[lookahead] seeds=' + LOOKAHEAD_SEEDS.length, result));
 });
 
+// AC-8 route band. Forced = take the route with that objective whenever it is
+// offered. The lookahead half uses 10 seeds (60 runs, ~480 route choices) to
+// keep npm test fast; the CLI equivalent is --route <id> at 300 seeds.
+test('no route objective dominates: forced routes stay within 10 points and the lookahead bot picks each at least 15% of the time', () => {
+  const objectives = Object.keys(E.OBJECTIVES);
+  for (const [policy, seedList] of [['lazy', LAZY_SEEDS], ['lookahead', sim.seedList(10)]]) {
+    const rates = Object.fromEntries(objectives.map(route => [route, sim.simulate({ policy, seedList, route }).aggregate.winRate]));
+    const rows = objectives.map(id => id + ' ' + (100 * rates[id]).toFixed(1) + '%').join(', ');
+    const best = Math.max(...Object.values(rates));
+    for (const id of objectives) assert.ok(best - rates[id] <= 0.10, policy + ' forced ' + id + ': ' + rows);
+    if (policy !== 'lookahead') continue;
+    const picks = sim.simulate({ policy, seedList }).aggregate.picks;
+    const shares = objectives.map(id => id + ' ' + (100 * picks[id]).toFixed(1) + '%').join(', ');
+    for (const id of objectives) assert.ok(picks[id] >= 0.15, 'lookahead picks ' + shares);
+  }
+});
+
 test('saves made under the previous enemy HP table still validate', () => {
   const legacy = [35, 90, 180, 330, 560, 900, 1400, 2150];
   const prepare = E.createRun({ seed: 4 });

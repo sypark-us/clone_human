@@ -16,7 +16,7 @@ Request: extend the Korean prototype into a polished single-player browser game,
 
 `js/engine.js` owns all rules and serializable run state. UMD/CommonJS export `CloneHumanEngine` in browsers. `js/storage.js` owns persistence. `js/audio.js` owns sound. `js/app.js` owns interaction, DOM and scheduling. `js/map.js` owns factory visualization. CSS/HTML own layout. Browser runtime has no dependency or build step.
 
-Engine exports: `MODULES` object of `{id,name,description,kind}`, `LOADOUTS` array of `{id,name,description,slots,energy,units,attack}`, `SECTORS` array of `{id,name,description,lanes:[{name,kind,value}]}`, `OBJECTIVES` object of `{id,name,description,limit,reward}`, `UPGRADES` array of `{id,name,description,cost,maxLevel}`, `ENEMIES` object of `{id,name,description}`. IDs retain original module IDs.
+Engine exports: `MODULES` object of `{id,name,description,kind}`, `LOADOUTS` array of `{id,name,description,slots,energy,units,attack}`, `SECTORS` array of `{id,name,description,lanes:[{name,kind,value}]}`, `OBJECTIVES` object of `{id,name,description,limit,reward,losses}`, `UPGRADES` array of `{id,name,description,baseCost,maxLevel}` (the next level's price comes only from `getUpgradeCost(state, id)`: 12, 18, 24 E; null at the cap), `ENEMIES` object of `{id,name,description}`. IDs retain original module IDs.
 
 Methods mutate and return state (invalid actions safely no-op): `createRun({seed,loadout})`, `selectSlot(state,index)`, `installModule(state,id)`, `moveSlot(state,direction)` (swap order, positions stay with slots), `relocateSlot(state,index,x,y)`, `chooseRoute(state,index)`, `reroll(state)`, `buyUpgrade(state,id)`, `startBattle(state)`, `tick(state)`, `nextWave(state)`. Queries: `canStart(state)`, `getBattlePreview(state)` returns `{hp,maxHp,shield,attack,limit}`, `getHints(state)` array of strings, `validateRun(value)` boolean.
 
@@ -29,7 +29,7 @@ Persistence exports `CloneHumanStorage`: `createStore(storage,validateRun)` with
 ## Decisions
 
 - Preserve Korean and all twelve module concepts. A balanced starter is default; specialists are selectable.
-- Defense objective becomes "defeat within 12 turns" with stronger retaliation and higher reward; early kills never cause a loss. Keep rush 8 turns, normal 12.
+- Defense objective becomes "defeat within 12 turns" with stronger retaliation and higher reward; early kills never cause a loss. Keep rush 8 turns, normal 12. Rewards trade safety for pay: normal +6 E, rush +12 E, defense +12 E with clone losses +2 (plus the speed bonus max(4, 12 − turn)).
 - Terrain effects are owned by engine position lookup; UI describes exactly those definitions.
 - Original synthesized music avoids external streaming and licensing dependencies.
 - Browser storage is local to the site/device. No account or cloud persistence.

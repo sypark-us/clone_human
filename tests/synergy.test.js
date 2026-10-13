@@ -257,7 +257,7 @@ function playLinkedFactory(seed, loadout, useLegacy) {
     E.installModule(s, offer);
     for (const id of ['fort', 'training', 'power']) {
       const desired = { fort: 3, training: 2, power: 1 };
-      while (s.energy >= 20 && s.upgrades[id] < desired[id]) E.buyUpgrade(s, id);
+      while (s.energy >= E.getUpgradeCost(s, id) + 8 && s.upgrades[id] < desired[id]) E.buyUpgrade(s, id);
     }
     // Rebuild the two supplemental links each preparation phase using the same
     // controls as a player, preferring extra clones, then reduced energy costs.

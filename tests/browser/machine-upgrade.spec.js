@@ -33,6 +33,22 @@ test('right-click previews then purchases an individual upgrade and persists thr
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test('factory upgrade buttons show the engine price of the next level after each purchase', async ({ page }) => {
+  const run = E.createRun({ seed: 1 }); run.energy = 60; await resume(page, run);
+  const tab = page.locator('[data-layout-tab="upgrades"]'); if (await tab.isVisible()) await tab.click();
+  const price = page.locator('[data-upgrade="power"] .upgrade-price');
+  for (const expected of ['12 E', '18 E', '24 E']) {
+    const saved = await read(page);
+    expect(E.getUpgradeCost(saved, 'power') + ' E').toBe(expected);
+    await expect(price).toHaveText(expected);
+    await page.locator('[data-upgrade="power"]').click();
+  }
+  await expect(price).toHaveText('Max level');
+  const bought = await read(page); expect(bought.upgrades.power).toBe(3); expect(bought.energy).toBe(6); expect(E.validateRun(bought)).toBe(true);
+  await expect(page.locator('[data-upgrade="training"] .upgrade-price')).toHaveText('12 E');
+  await expect(page.locator('[data-upgrade="training"]')).toBeDisabled();
+});
+
 test('rack and keyboard shortcuts show the same menu, dismiss cleanly, and translate', async ({ page }) => {
   await resume(page); const rack = page.locator('#slot-rack [data-slot="0"]');
   await rack.focus(); await page.keyboard.press('Shift+F10'); await expect(popup(page)).toBeVisible();

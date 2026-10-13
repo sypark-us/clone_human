@@ -85,11 +85,11 @@
     '이 구역의 채굴기는 실행마다 에너지 +4.': 'Miners in this zone gain +4 additional energy per activation.',
 
     '코어 정복': 'Core Capture',
-    '12턴 안에 격파. 에너지 +3과 속도 보너스.': 'Destroy the core within 12 turns. Gain +3 energy and a bonus for finishing early.',
+    '12턴 안에 격파. 에너지 +6과 속도 보너스.': 'Destroy the core within 12 turns. Gain +6 energy and a bonus for finishing early.',
     '긴급 돌파': 'Rapid Breach',
     '8턴 안에 격파. 에너지 +12와 속도 보너스.': 'Destroy the core within 8 turns. Gain +12 energy and a bonus for finishing early.',
     '방어선 돌파': 'Defensive Breach',
-    '병사 손실 +1. 12턴 안에 격파하면 에너지 +10과 속도 보너스. 빠른 격파도 성공.': 'Clone losses +1. Destroy the core within 12 turns for +10 energy and a bonus for finishing early. Early kills also succeed.',
+    '병사 손실 +2. 12턴 안에 격파하면 에너지 +12와 속도 보너스. 빠른 격파도 성공.': 'Clone losses +2. Destroy the core within 12 turns for +12 energy and a bonus for finishing early. Early kills also succeed.',
     '발전기 확장': 'Generator Expansion',
     '단계마다 매 턴 에너지 +2.': 'Each level grants +2 energy per turn.',
     '복제 배양조': 'Growth Tanks',
