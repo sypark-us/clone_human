@@ -47,6 +47,21 @@
   }
   const center = pos => ({ x: pos.x * 80 + 40, y: pos.y * 80 + 44 });
   const round = value => Math.round(value * 10) / 10;
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const TOKEN_KINDS = ['mine', 'clone', 'soldier', 'mutation', 'bomb', 'echo', 'boost'];
+  const REACTIONS = ['recycle', 'onclone', 'onkill', 'autoclone', 'revive'];
+  function floatLabel(event) {
+    if (event.kind === 'damage') {
+      const match = /^피해 (\d+)(?: · 방어막 (\d+))?$/.exec(event.text);
+      return { text: match ? '-' + match[1] + (match[2] ? ' · ' + t('방어막 -{amount}', { amount: match[2] }) : '') : '', tone: 'damage' };
+    }
+    if (event.kind === 'idle') return { text: '! ' + t(event.text), tone: 'idle' };
+    if (REACTIONS.includes(event.kind)) return { text: t(event.text), tone: 'reaction' };
+    return { text: '', tone: 'quiet' };
+  }
+  function settle(node, animation) {
+    animation.finished.then(() => node.remove(), () => node.remove());
+  }
   class FactoryMap {
     constructor(container, engine, onSelect, onMove, onConnect) {
       this.container = container;
@@ -57,11 +72,17 @@
       this.zoom = 1;
       this.moving = false;
       this.draggedSlot = null;
-      container.innerHTML = '<div class="map-world"><div class="map-terrain"></div><div class="zone-wash zone-a"></div><div class="zone-wash zone-b"></div><div class="zone-wash zone-c"></div><div class="map-grid"></div><svg class="map-belts" viewBox="0 0 960 560" aria-hidden="true"></svg><svg class="map-synergies" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-tiles" role="grid" aria-label="공장 지도. 방향키로 탐색하고 Enter로 선택합니다."></div><div class="map-zone-labels" aria-hidden="true"></div></div>';
+      container.innerHTML = '<div class="map-world"><div class="map-terrain"></div><div class="zone-wash zone-a"></div><div class="zone-wash zone-b"></div><div class="zone-wash zone-c"></div><div class="map-grid"></div><svg class="map-belts" viewBox="0 0 960 560" aria-hidden="true"></svg><svg class="map-synergies" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-tiles" role="grid" aria-label="공장 지도. 방향키로 탐색하고 Enter로 선택합니다."></div><div class="map-zone-labels" aria-hidden="true"></div><svg class="map-fx" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-floats" aria-hidden="true"></div><div class="map-result" hidden><strong class="map-result-title"></strong><span class="map-result-reward"></span><div class="map-result-actions"><button type="button" id="map-result-action" class="primary-button"></button><button type="button" id="map-result-report" class="secondary-button"></button></div></div></div>';
       this.world = container.querySelector('.map-world');
       this.belts = container.querySelector('.map-belts');
       this.synergies = container.querySelector('.map-synergies');
       this.tiles = container.querySelector('.map-tiles');
+      // Turn effects live in their own layers: render() rebuilds belts and
+      // tiles, and must not cut an in-flight timeline short.
+      this.fx = container.querySelector('.map-fx');
+      this.floats = container.querySelector('.map-floats');
+      this.result = container.querySelector('.map-result');
+      this.fxUntil = 0;
       for (let y = 0; y < 7; y++) {
         const row = document.createElement('div');
         row.className = 'map-row'; row.setAttribute('role', 'row');
@@ -286,6 +307,70 @@
         labels.append(label);
       });
       this.refreshTooltip();
+    }
+    playTurn(events, durationMs) {
+      if (reducedMotion.matches || !this.state || !Array.isArray(events)) return;
+      const state = this.state, points = state.positions.map(center);
+      const played = events.filter(event => event.slot >= 0 || event.kind === 'damage');
+      if (!played.length) return;
+      // Machines fire in execution order across most of the turn interval.
+      const step = Math.min(220, durationMs * 0.85 / played.length);
+      played.forEach((event, index) => {
+        const delay = index * step, machineId = event.slot >= 0 ? state.slots[event.slot] : null;
+        const color = COLORS[machineId] || '#e9e1b8';
+        const label = floatLabel(event);
+        const float = document.createElement('span');
+        float.className = 'map-float float-' + (event.slot < 0 ? 'basic' : label.tone);
+        float.dataset.fxSlot = event.slot; float.dataset.fxKind = event.kind;
+        float.textContent = label.text;
+        float.style.setProperty('--fx-color', color);
+        const at = event.slot >= 0 ? points[event.slot] : { x: 880, y: 250 };
+        float.style.left = (at.x / 960 * 100) + '%'; float.style.top = (at.y / 560 * 100) + '%';
+        this.floats.append(float);
+        settle(float, float.animate([
+          { opacity: 0, transform: 'translate(-50%, -30%) scale(.7)' },
+          { opacity: 1, transform: 'translate(-50%, -90%) scale(1.08)', offset: .25 },
+          { opacity: 0, transform: 'translate(-50%, -190%) scale(1)' }
+        ], { duration: event.slot < 0 ? 900 : 760, delay, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'backwards' }));
+        if (event.slot < 0) return;
+        const tile = this.buttons[state.positions[event.slot].y * 12 + state.positions[event.slot].x];
+        tile.animate(event.kind === 'idle' ? [
+          { transform: 'translateX(0)', filter: 'grayscale(0)' }, { transform: 'translateX(-3px)', filter: 'grayscale(1)', offset: .25 },
+          { transform: 'translateX(3px)', filter: 'grayscale(1)', offset: .6 }, { transform: 'translateX(0)', filter: 'grayscale(0)' }
+        ] : [
+          { transform: 'scale(1)', filter: 'drop-shadow(0 0 0 ' + color + ')' },
+          { transform: 'scale(1.14)', filter: 'drop-shadow(0 0 9px ' + color + ')', offset: .35 },
+          { transform: 'scale(1)', filter: 'drop-shadow(0 0 0 ' + color + ')' }
+        ], { duration: 380, delay, easing: 'ease-out' });
+        const next = points[event.slot + 1];
+        if (!TOKEN_KINDS.includes(event.kind) || !next) return;
+        // The token follows the belt's horizontal-then-vertical routing.
+        const start = points[event.slot], run = Math.abs(next.x - start.x), drop = Math.abs(next.y - start.y);
+        const token = document.createElementNS(NS, 'circle');
+        token.setAttribute('class', 'map-token'); token.setAttribute('r', '7'); token.setAttribute('fill', color);
+        token.style.setProperty('--fx-color', color);
+        this.fx.append(token);
+        settle(token, token.animate([
+          { transform: `translate(${start.x}px, ${start.y}px)`, opacity: 0 },
+          { transform: `translate(${start.x}px, ${start.y}px)`, opacity: 1, offset: .05 },
+          { transform: `translate(${next.x}px, ${start.y}px)`, opacity: 1, offset: run + drop ? .05 + .9 * run / (run + drop) : .5 },
+          { transform: `translate(${next.x}px, ${next.y}px)`, opacity: 0 }
+        ], { duration: Math.max(320, Math.min(640, step * 2.4)), delay: delay + 80, easing: 'ease-in-out', fill: 'backwards' }));
+      });
+      this.fxUntil = Date.now() + durationMs;
+    }
+    showResult(info) {
+      // A banner waits for the final turn's timeline; a restored report shows at once.
+      if (!info) { clearTimeout(this.resultTimer); this.resultTimer = null; this.resultShown = false; this.result.hidden = true; return; }
+      this.result.querySelector('.map-result-title').textContent = info.title;
+      this.result.querySelector('.map-result-reward').textContent = info.reward;
+      this.result.querySelector('#map-result-action').textContent = info.action;
+      this.result.querySelector('#map-result-report').textContent = info.report;
+      this.result.classList.toggle('lost', !info.win);
+      if (this.resultShown || this.resultTimer) return;
+      const reveal = () => { this.resultTimer = null; this.resultShown = true; this.result.hidden = false; };
+      const wait = reducedMotion.matches ? 0 : this.fxUntil - Date.now();
+      if (wait > 0) this.resultTimer = setTimeout(reveal, wait); else reveal();
     }
     renderLinks(state, points = state.positions.map(center), links = this.engine.getSynergies?.(state) || []) {
       // Belts trace production order; during a drag the points follow the cursor.

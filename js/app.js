@@ -75,18 +75,20 @@
     return saveResult.ok;
   }
   function stopTimer() { if (timer !== null) clearInterval(timer); timer = null; }
+  const turnInterval = () => 1800 / settings.speed;
   function schedule() {
     stopTimer();
     if (!run || run.phase !== 'battle' || paused || welcomeVisible || document.hidden) return;
-    timer = setInterval(advanceTurn, 1100 / settings.speed);
+    timer = setInterval(advanceTurn, turnInterval());
   }
   function advanceTurn() {
     if (!run || run.phase !== 'battle') { stopTimer(); return; }
     E.tick(run);
+    // Start the timeline before rendering so the result banner waits for it.
+    map.playTurn(run.lastTurn, turnInterval());
     audio.play(run.phase === 'lost' ? 'lose' : ['report', 'won'].includes(run.phase) ? 'win' : 'turn');
     if (run.phase !== 'battle') { stopTimer(); paused = true; }
     save(); render();
-    if (run.phase !== 'battle' && !window.CloneHumanLayout?.isDesktop()) $('report-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
   function act(action, sound = 'click') {
     if (!run) return;
@@ -268,6 +270,7 @@
     else { title = run.phase === 'won' ? '8개 구역 돌파 완료' : '이번 도전 종료'; detail = '다른 설계로 새로운 공장을 시작하세요.'; label = '다시 설계'; }
     $('command-title').textContent = t(title); $('command-detail').textContent = t(detail);
     $('primary-button').innerHTML = escape(t(label)) + '<span aria-hidden="true">' + (run.phase === 'battle' && !paused ? 'Ⅱ' : '→') + '</span>';
+    map.showResult(['report', 'won', 'lost'].includes(run.phase) && run.report ? { title: $('report-title').textContent, reward: $('report-reward').textContent, action: t(label), report: t('전투 결과'), win: run.report.win } : null);
     $('primary-button').disabled = run.phase === 'prepare' && !E.canStart(run);
     $('step-button').hidden = run.phase !== 'battle';
     $('step-button').disabled = !paused;
@@ -314,6 +317,10 @@
     if (button.dataset.upgrade) { act(() => E.buyUpgrade(run, button.dataset.upgrade), 'place'); }
   });
   $('primary-button').addEventListener('click', primary);
+  $('map-result-action').addEventListener('click', () => { primary(); if (!$('game').hidden) $('primary-button').focus({ preventScroll: true }); });
+  $('map-result-report').addEventListener('click', event => {
+    if (!window.CloneHumanLayout?.openReport(event.currentTarget)) $('report-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
   $('step-button').addEventListener('click', () => { if (paused) advanceTurn(); });
   $('speed-select').addEventListener('change', event => { settings.speed = Number(event.target.value); save(); schedule(); });
   $('move-button').addEventListener('click', () => { if (run?.phase !== 'prepare') return; connecting = false; moving = !moving; render(); if (moving) { $('factory').scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('목적지를 클릭하세요. 방향키와 Enter로도 이동할 수 있습니다.'); } });

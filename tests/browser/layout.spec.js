@@ -66,13 +66,17 @@ test('desktop tabs retain selection while translating and expose real build and 
   await expect(page.locator('#layout-log-button')).toBeFocused();
 });
 
-test('desktop report popup continues to the next wave through its real action', async ({ page }) => {
+test('desktop report popup opens from the result banner and continues to the next wave', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });
   const run = E.createRun({ seed: 1 });
   E.chooseRoute(run, 0); E.installModule(run, run.offers[0]);
   run.attack = 999; E.startBattle(run); E.tick(run);
   expect(run.phase).toBe('report');
   await resume(page, run);
+  // A restored report shows the on-map banner at once and never auto-opens the dialog.
+  await expect(page.locator('.map-result')).toBeVisible();
+  await expect(page.locator('#layout-report-dialog')).toBeHidden();
+  await page.locator('#map-result-report').click();
   await expect(page.locator('#layout-report-dialog')).toBeVisible();
   await page.locator('#layout-report-continue').click();
   await expect(page.locator('#layout-report-dialog')).toBeHidden();
@@ -122,6 +126,10 @@ test('a report still opens after changing language on the welcome screen', async
   await page.goto('/');
   await page.locator('#language-select').selectOption('en');
   await page.locator('#resume-button').click();
+  await expect(page.locator('.map-result')).toContainText('Sector 1 cleared');
+  await expect(page.locator('#map-result-report')).toHaveText('Battle report');
+  await expect(page.locator('#layout-report-dialog')).toBeHidden();
+  await page.locator('#map-result-report').click();
   await expect(page.locator('#layout-report-dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await page.setViewportSize({ width: 390, height: 844 });
@@ -130,5 +138,7 @@ test('a report still opens after changing language on the welcome screen', async
   await expect(page.locator('#layout-report-button')).toBeVisible();
   await page.locator('#new-game-button').click();
   await page.locator('#resume-button').click();
+  await expect(page.locator('.map-result')).toBeVisible();
+  await page.locator('#layout-report-button').click();
   await expect(page.locator('#layout-report-dialog')).toBeVisible();
 });

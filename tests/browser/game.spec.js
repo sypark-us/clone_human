@@ -89,14 +89,13 @@ for (const language of ['ko', 'en']) test('eight-wave campaign completes through
       }
     }
     await page.locator('#primary-button').click();
-    for (let turn = 0; turn < 12 && (await state(page)).phase === 'battle'; turn++) await page.clock.runFor(1100);
+    for (let turn = 0; turn < 12 && (await state(page)).phase === 'battle'; turn++) await page.clock.runFor(1800);
     s = await state(page); expect(s.report.win).toBe(true);
     await expect(page.locator('#report-reason')).not.toContainText('core-destroyed');
-    await expect(page.locator('#report-section')).toBeVisible();
-    if (wave < 8) {
-      const next = page.locator('#layout-report-continue');
-      await (await next.isVisible() ? next : page.locator('#primary-button')).click();
-    }
+    // The battle ends on the map banner once the final turn has played.
+    await page.clock.runFor(1800);
+    await expect(page.locator('.map-result')).toBeVisible();
+    if (wave < 8) await page.locator('#map-result-action').click();
   }
   expect((await state(page)).phase).toBe('won');
   await expect(page.locator('#report-title')).toHaveText(language === 'ko' ? '공장이 미래를 만들었습니다.' : 'Your factory built the future.');
