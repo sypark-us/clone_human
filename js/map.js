@@ -45,6 +45,8 @@
     const stats = root.CloneHumanEngine.getModuleStats(id, level), entry = summaries[id];
     return entry && stats ? t(entry[0], { amount: stats[entry[1]] * (id === 'bomb' ? 2 : 1) }) : t('빈 슬롯에 새 설비를 설치하세요.');
   }
+  const center = pos => ({ x: pos.x * 80 + 40, y: pos.y * 80 + 44 });
+  const round = value => Math.round(value * 10) / 10;
   class FactoryMap {
     constructor(container, engine, onSelect, onMove, onConnect) {
       this.container = container;
@@ -72,7 +74,7 @@
           tile.addEventListener('keydown', event => this.key(event, x, y));
           tile.addEventListener('dragstart', event => this.startDrag(event, x, y));
           tile.addEventListener('dragover', event => {
-            if (this.dragTarget(x, y) < 0) return;
+            if (!this.canDrop(x, y)) return;
             event.preventDefault(); event.dataTransfer.dropEffect = 'move';
             tile.classList.add('drop-target');
           });
@@ -80,8 +82,8 @@
             if (!tile.contains(event.relatedTarget)) tile.classList.remove('drop-target');
           });
           tile.addEventListener('drop', event => {
-            const source = this.draggedSlot, target = this.dragTarget(x, y);
-            if (target < 0) return;
+            const source = this.draggedSlot;
+            if (!this.canDrop(x, y)) return;
             event.preventDefault(); this.clearDrag(); this.onMove(source, x, y);
           });
           tile.addEventListener('dragend', () => this.clearDrag());
@@ -89,6 +91,7 @@
         }
         this.tiles.append(row);
       }
+      this.tiles.addEventListener('dragover', event => this.previewDrag(event));
       this.buttons = [...this.tiles.querySelectorAll('button')];
       this.tooltip = document.createElement('div');
       this.tooltip.id = 'machine-tooltip'; this.tooltip.className = 'machine-tooltip';
@@ -173,10 +176,11 @@
     canDrag() {
       return this.state?.phase === 'prepare' && !this.moving && !this.connecting;
     }
-    dragTarget(x, y) {
-      if (this.draggedSlot === null || !this.canDrag()) return -1;
-      const target = this.state.positions.findIndex(position => position.x === x && position.y === y);
-      return target !== this.draggedSlot && this.state.slots[target] ? target : -1;
+    canDrop(x, y) {
+      // Any other tile: empty ground moves the machine, a plot swaps with it.
+      if (this.draggedSlot === null || !this.canDrag()) return false;
+      const source = this.state.positions[this.draggedSlot];
+      return source.x !== x || source.y !== y;
     }
     startDrag(event, x, y) {
       const source = this.state?.positions.findIndex(position => position.x === x && position.y === y);
@@ -189,10 +193,26 @@
       this.buttons.forEach(button => {
         const bx = Number(button.dataset.x), by = Number(button.dataset.y);
         button.classList.toggle('drag-source', bx === x && by === y);
-        button.classList.toggle('swap-target', this.dragTarget(bx, by) >= 0);
+        button.classList.toggle('swap-target', this.canDrop(bx, by) && this.state.positions.some(p => p.x === bx && p.y === by));
       });
     }
+    previewDrag(event) {
+      if (this.draggedSlot === null || !this.state) return;
+      const tile = event.target.closest?.('.map-tile');
+      const x = Number(tile?.dataset.x), y = Number(tile?.dataset.y);
+      const key = tile && this.canDrop(x, y) ? x + ',' + y : null;
+      if (key === this.previewKey) return;
+      this.previewKey = key;
+      if (key === null) { this.renderLinks(this.state); return; }
+      // Run the real move on a copy so the links show exactly what the drop saves.
+      const { slots, positions, machineLevels } = this.state;
+      const preview = { ...this.state, slots: [...slots], positions: [...positions], machineLevels: machineLevels && [...machineLevels] };
+      this.engine.relocateSlot(preview, this.draggedSlot, x, y);
+      this.renderLinks(preview);
+    }
     clearDrag() {
+      if (this.draggedSlot !== null && this.previewKey !== null && this.state) this.renderLinks(this.state);
+      this.previewKey = null;
       this.draggedSlot = null;
       this.world.classList.remove('drag-mode');
       this.buttons.forEach(button => button.classList.remove('drag-source', 'swap-target', 'drop-target'));
@@ -257,18 +277,7 @@
           button.innerHTML = ore ? '<span class="ore ore-' + Math.floor(x / 4) + '" aria-hidden="true"><i></i><i></i><i></i></span>' : '';
         }
       });
-      this.belts.replaceChildren();
-      state.positions.slice(0, -1).forEach((pos, i) => {
-        const next = state.positions[i + 1];
-        const sx = pos.x * 80 + 40, sy = pos.y * 80 + 44;
-        const ex = next.x * 80 + 40, ey = next.y * 80 + 44;
-        const d = 'M' + sx + ' ' + sy + ' H' + ex + ' V' + ey;
-        for (const cls of ['belt-edge', 'belt-base', 'belt-flow']) {
-          const path = document.createElementNS(NS, 'path');
-          path.setAttribute('d', d); path.setAttribute('class', cls); this.belts.append(path);
-        }
-      });
-      this.renderSynergies(state, synergies);
+      this.renderLinks(state, undefined, synergies);
       const labels = this.container.querySelector('.map-zone-labels');
       labels.replaceChildren();
       (sector?.lanes || []).forEach((lane, i) => {
@@ -278,7 +287,20 @@
       });
       this.refreshTooltip();
     }
-    renderSynergies(state, links) {
+    renderLinks(state, points = state.positions.map(center), links = this.engine.getSynergies?.(state) || []) {
+      // Belts trace production order; during a drag the points follow the cursor.
+      this.belts.replaceChildren();
+      points.slice(0, -1).forEach((start, i) => {
+        const end = points[i + 1];
+        const d = 'M' + start.x + ' ' + start.y + ' H' + end.x + ' V' + end.y;
+        for (const cls of ['belt-edge', 'belt-base', 'belt-flow']) {
+          const path = document.createElementNS(NS, 'path');
+          path.setAttribute('d', d); path.setAttribute('class', cls); this.belts.append(path);
+        }
+      });
+      this.renderSynergies(points, links);
+    }
+    renderSynergies(points, links) {
       this.synergies.replaceChildren();
       const colors = { energy: '#f2cb79', clone: '#83e5b4', attack: '#f28c70' };
       const names = { energy: '에너지 연결', clone: '복제 연결', attack: '공격 연결' };
@@ -293,13 +315,11 @@
       }
       this.synergies.append(defs);
       for (const link of links) {
-        const from = state.positions[link.from], to = state.positions[link.to];
+        const from = points[link.from], to = points[link.to];
         const dx = to.x - from.x, dy = to.y - from.y;
         const length = Math.hypot(dx, dy) || 1;
-        const sx = from.x * 80 + 40 + dx / length * 23;
-        const sy = from.y * 80 + 44 + dy / length * 23;
-        const ex = to.x * 80 + 40 - dx / length * 27;
-        const ey = to.y * 80 + 44 - dy / length * 27;
+        const sx = round(from.x + dx / length * 23), sy = round(from.y + dy / length * 23);
+        const ex = round(to.x - dx / length * 27), ey = round(to.y - dy / length * 27);
         const d = link.via === 'connector' ? `M${sx} ${sy} Q${(sx + ex) / 2} ${Math.max(16, Math.min(sy, ey) - 64)} ${ex} ${ey}` : `M${sx} ${sy} L${ex} ${ey}`;
         const path = document.createElementNS(NS, 'path');
         path.setAttribute('d', d);

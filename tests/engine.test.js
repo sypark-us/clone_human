@@ -83,15 +83,27 @@ test('invalid actions do not spend resources, consume rewards or corrupt slot st
   assert.deepEqual(s, before);
 });
 
-test('relocation swaps occupied cells while production reorder keeps cell positions', () => {
+test('production numbers follow map reading order, so moving a machine renumbers plots', () => {
+  const E = engine(); const s = ready();
+  const sorted = list => list.every((p, i) => !i || list[i - 1].y < p.y || (list[i - 1].y === p.y && list[i - 1].x < p.x));
+  assert.equal(sorted(E.createRun({ seed: 1 }).positions), true);
+  const modules = [...s.slots];
+  E.selectSlot(s, 0); E.relocateSlot(s, 0, 6, 2);
+  assert.deepEqual(s.slots.slice(0, 3), [modules[1], modules[0], modules[2]]);
+  assert.deepEqual(s.positions[1], { x: 6, y: 2 }); assert.equal(s.selectedSlot, 1);
+  E.relocateSlot(s, 1, 11, 6);
+  assert.equal(s.slots[7], modules[0]); assert.deepEqual(s.positions[7], { x: 11, y: 6 }); assert.equal(s.selectedSlot, 7);
+  assert.equal(sorted(s.positions), true); assert.equal(s.positions.length, 8); assert.equal(E.validateRun(s), true);
+});
+
+test('relocating onto an occupied plot swaps machines and their production order; plots keep positions', () => {
   const E = engine(); const s = ready(); const positions = copy(s.positions); const modules = [...s.slots];
-  E.relocateSlot(s, 0, positions[1].x, positions[1].y);
-  assert.deepEqual(s.positions[0], positions[1]); assert.deepEqual(s.positions[1], positions[0]);
-  assert.deepEqual(s.slots, modules);
-  const relocated = copy(s.positions);
-  E.selectSlot(s, 0); E.moveSlot(s, 1);
-  assert.equal(s.slots[0], modules[1]); assert.equal(s.slots[1], modules[0]);
-  assert.deepEqual(s.positions, relocated); assert.equal(s.selectedSlot, 1);
+  E.selectSlot(s, 0); E.relocateSlot(s, 0, positions[1].x, positions[1].y);
+  assert.deepEqual(s.positions, positions);
+  assert.equal(s.slots[0], modules[1]); assert.equal(s.slots[1], modules[0]); assert.equal(s.selectedSlot, 1);
+  const relocated = copy(s.positions); E.selectSlot(s, 1); E.moveSlot(s, -1);
+  assert.deepEqual(s.slots.slice(0, 2), modules.slice(0, 2));
+  assert.deepEqual(s.positions, relocated); assert.equal(s.selectedSlot, 0);
   assert.equal(E.validateRun(s), true);
 });
 

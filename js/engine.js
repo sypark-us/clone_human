@@ -299,7 +299,7 @@
       version: 2, seed, rngState: seed, loadoutId: loadout.id, phase: 'prepare', wave: 1, connectors: [],
       energy: loadout.energy, units: loadout.units, attack: loadout.attack,
       slots: [...loadout.slots, ...Array(8).fill(null)].slice(0, 8),
-      positions: [{ x: 1, y: 2 }, { x: 5, y: 2 }, { x: 9, y: 2 }, { x: 10, y: 4 }, { x: 6, y: 4 }, { x: 2, y: 4 }, { x: 2, y: 5 }, { x: 6, y: 5 }],
+      positions: [{ x: 1, y: 2 }, { x: 5, y: 2 }, { x: 9, y: 2 }, { x: 2, y: 4 }, { x: 6, y: 4 }, { x: 10, y: 4 }, { x: 2, y: 5 }, { x: 6, y: 5 }],
       selectedSlot: loadout.slots.length, needsReward: true, offers: [], routes: [], routePending: true,
       sectorId: SECTORS[0].id, objectiveId: 'normal', enemyId: 'standard',
       upgrades: { power: 0, training: 0, fort: 0 }, turn: 0, hp: 35, maxHp: 35, shield: 0, enemyAttack: 1,
@@ -332,12 +332,25 @@
     state.selectedSlot = next;
     return state;
   }
+  function sortPlots(state) {
+    // Production order is map reading order (top row first, left to right), so
+    // a move renumbers plots. Levels and connector endpoints follow machines.
+    const order = state.positions.map((_, slot) => slot).sort((a, b) => state.positions[a].y - state.positions[b].y || state.positions[a].x - state.positions[b].x);
+    const renumber = [];
+    order.forEach((slot, next) => { renumber[slot] = next; });
+    const pick = list => order.map(slot => list[slot]);
+    state.slots = pick(state.slots); state.positions = pick(state.positions);
+    if (state.version === 3) state.machineLevels = pick(state.machineLevels);
+    if ([2, 3].includes(state.version)) state.connectors = state.connectors.map(link => ({ from: renumber[link.from], to: renumber[link.to] }));
+    state.selectedSlot = renumber[state.selectedSlot];
+  }
   function relocateSlot(state, index, x, y) {
     if (!preparing(state) || !integer(index, 0, 7) || !integer(x, 0, 11) || !integer(y, 0, 6)) return state;
     const occupied = state.positions.findIndex(position => position.x === x && position.y === y);
     if (occupied === index) return state;
     if (occupied >= 0) state.positions[occupied] = state.positions[index];
     state.positions[index] = { x, y };
+    sortPlots(state);
     return state;
   }
   function chooseRoute(state, index) {

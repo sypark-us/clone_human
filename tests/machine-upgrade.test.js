@@ -41,8 +41,8 @@ test('stat queries expose intermediate levels without sharing mutable definition
 test('levels follow machines through ordering and map swaps, but replacements start at level one', () => {
   const s = upgraded(['mine', 'clone'], 2); s.energy = 100; E.upgradeMachine(s, 0);
   E.selectSlot(s, 0); E.moveSlot(s, 1); assert.deepEqual(s.machineLevels.slice(0, 2), [2, 3]); assert.equal(s.slots[1], 'mine');
-  const levels = [...s.machineLevels]; E.relocateSlot(s, 1, s.positions[0].x, s.positions[0].y); assert.deepEqual(s.machineLevels, levels);
-  s.needsReward = true; E.installModule(s, s.offers[0]); assert.equal(E.getMachineLevel(s, 1), 1);
+  E.relocateSlot(s, 1, s.positions[0].x, s.positions[0].y); assert.deepEqual(s.machineLevels.slice(0, 2), [3, 2]); assert.equal(s.slots[0], 'mine');
+  E.selectSlot(s, 1); s.needsReward = true; E.installModule(s, s.offers[0]); assert.equal(E.getMachineLevel(s, 1), 1);
   E.selectSlot(s, 7); s.needsReward = true; E.installModule(s, s.offers[0]); assert.equal(E.getMachineLevel(s, 7), 1);
 });
 

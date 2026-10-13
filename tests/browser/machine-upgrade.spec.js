@@ -27,7 +27,8 @@ test('right-click previews then purchases an individual upgrade and persists thr
   await expect(popup(page)).toBeHidden(); await expect(miner.locator('.machine-level')).toHaveText('Lv.2');
   await miner.hover(); await expect(page.getByRole('tooltip')).toContainText('+6 energy / turn');
   await miner.dragTo(cell(page, before.positions[1]));
-  const moved = await read(page); expect(moved.machineLevels).toEqual(bought.machineLevels); expect(moved.positions[0]).toEqual(before.positions[1]);
+  const moved = await read(page); expect(moved.positions).toEqual(before.positions);
+  expect(moved.slots[1]).toBe(before.slots[0]); expect(moved.machineLevels.slice(0, 2)).toEqual([bought.machineLevels[1], bought.machineLevels[0]]);
   await page.reload(); await page.locator('#resume-button').click(); expect(await read(page)).toEqual(moved);
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
@@ -74,7 +75,7 @@ test('open previews close for drag, scrolling and help without blocking existing
   await miner.click({ button: 'right' }); await expect(popup(page)).toBeVisible(); await page.locator('#help-button').click(); await expect(popup(page)).toBeHidden();
   await page.keyboard.press('Escape'); await miner.click({ button: 'right' });
   await miner.dragTo(cell(page, run.positions[1])); await expect(popup(page)).toBeHidden();
-  expect((await read(page)).positions[0]).toEqual(run.positions[1]);
+  expect((await read(page)).slots[1]).toBe(run.slots[0]);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('#slot-rack [data-slot="0"]').click({ button: 'right' }); await expect(popup(page)).toBeVisible();
   await page.evaluate(() => window.scrollBy(0, 120));

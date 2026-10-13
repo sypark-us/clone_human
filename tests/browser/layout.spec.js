@@ -57,7 +57,8 @@ test('desktop tabs retain selection while translating and expose real build and 
   expect((await state(page)).selectedSlot).toBe(selected);
   await page.locator('#move-button').click();
   await page.locator('.map-tile[data-x="5"][data-y="0"]').click();
-  expect((await state(page)).positions[selected]).toEqual({ x: 5, y: 0 });
+  // The top row runs first, so the moved machine becomes #1 and stays selected.
+  const moved = await state(page); expect(moved.selectedSlot).toBe(0); expect(moved.positions[0]).toEqual({ x: 5, y: 0 });
   await page.locator('#layout-log-button').click();
   await expect(page.locator('#layout-log-dialog')).toBeVisible();
   await page.keyboard.press('Escape');

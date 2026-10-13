@@ -86,6 +86,21 @@ test('relocation retains manual links but duplicate adjacency contributes only o
   assert.equal(E.validateRun(s), true);
 });
 
+test('map swaps exchange production order and connectors stay attached to their machines', () => {
+  api(); const s = setup(['mine', 'clone', 'soldier']); E.connectSlots(s, 0, 2);
+  E.selectSlot(s, 0); E.relocateSlot(s, 0, s.positions[2].x, s.positions[2].y);
+  assert.deepEqual(s.slots.slice(0, 3), ['soldier', 'clone', 'mine']);
+  assert.deepEqual(s.connectors, [{ from: 2, to: 0 }]);
+  assert.equal(s.selectedSlot, 2); assert.equal(E.validateRun(s), true);
+});
+
+test('renumbering on a move remaps connectors and levels with their machines', () => {
+  api(); const s = setup(['mine', 'clone', 'soldier']); E.connectSlots(s, 0, 3 - 1);
+  E.selectSlot(s, 0); E.relocateSlot(s, 0, 5, 6);
+  assert.equal(s.slots[7], 'mine'); assert.deepEqual(s.slots.slice(0, 2), ['clone', 'soldier']);
+  assert.deepEqual(s.connectors, [{ from: 7, to: 1 }]); assert.equal(E.validateRun(s), true);
+});
+
 test('each bonus type caps per target across multiple adjacent and manual sources', () => {
   api(); const s = setup(['mine', 'mine', 'clone', 'mutation', 'mutation', 'mine']);
   s.positions[2] = { x: 5, y: 3 }; s.positions[0] = { x: 4, y: 3 }; s.positions[1] = { x: 5, y: 4 };
