@@ -268,7 +268,18 @@
       label = paused ? '전투 계속' : '전투 일시정지';
     } else if (run.phase === 'report') { title = '다음 구역으로'; detail = '새 설비를 확보하고 공장을 확장하세요.'; label = '다음 웨이브'; }
     else { title = run.phase === 'won' ? '8개 구역 돌파 완료' : '이번 도전 종료'; detail = '다른 설계로 새로운 공장을 시작하세요.'; label = '다시 설계'; }
-    $('command-title').textContent = t(title); $('command-detail').textContent = t(detail);
+    $('command-title').textContent = t(title);
+    // The forecast replays the whole battle on a copy, so it is recomputed on every prepare-phase render.
+    const forecast = run.phase === 'prepare' ? E.getForecast(run) : null;
+    let forecastNode = null;
+    if (forecast) {
+      forecastNode = document.createElement('b');
+      forecastNode.id = 'forecast';
+      forecastNode.className = 'forecast ' + (forecast.win ? 'forecast-win' : 'forecast-loss');
+      forecastNode.dataset.win = String(forecast.win); forecastNode.dataset.turns = String(forecast.turns); forecastNode.dataset.hpLeft = String(forecast.hpLeft);
+      forecastNode.textContent = forecast.win ? t('예상: {turns}턴에 코어 격파', { turns: forecast.turns }) : t('예상: 제한 턴 내 체력 {hp} 부족', { hp: forecast.hpLeft });
+    }
+    $('command-detail').replaceChildren(...[t(detail), forecastNode].filter(Boolean));
     $('primary-button').innerHTML = escape(t(label)) + '<span aria-hidden="true">' + (run.phase === 'battle' && !paused ? 'Ⅱ' : '→') + '</span>';
     map.showResult(['report', 'won', 'lost'].includes(run.phase) && run.report ? { title: $('report-title').textContent, reward: $('report-reward').textContent, action: t(label), report: t('전투 결과'), win: run.report.win } : null);
     $('primary-button').disabled = run.phase === 'prepare' && !E.canStart(run);

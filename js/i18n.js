@@ -168,6 +168,8 @@
     '복제인간 {units}명 · 공격력 {attack}': '{units} clones · {attack} power each',
     '방어막 {shield} · 턴당 병사 손실 {attack}': 'Shield {shield} · {attack} clones lost/turn',
     '턴 {turn} / {limit}': 'Turn {turn} / {limit}',
+    '예상: {turns}턴에 코어 격파': 'Forecast: core destroyed on turn {turns}',
+    '예상: 제한 턴 내 체력 {hp} 부족': 'Forecast: falls {hp} HP short',
     '공장이 미래를 만들었습니다.': 'Your factory built the future.',
     '구역 {wave} 돌파 완료': 'Sector {wave} cleared',
     '생산 라인이 멈췄습니다.': 'Your production line has stopped.',

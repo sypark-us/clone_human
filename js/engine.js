@@ -537,6 +537,16 @@
     else if (state.turn >= OBJECTIVES[state.objectiveId].limit) finishBattle(state, false);
     return state;
   }
+  // Combat is deterministic (the RNG only rolls offers and routes), so the real
+  // battle is played out on a copy and its outcome is the forecast.
+  function getForecast(state) {
+    if (!canStart(state)) return null;
+    const fight = clone(state);
+    startBattle(fight);
+    for (let turn = 0; fight.phase === 'battle' && turn <= OBJECTIVES[fight.objectiveId].limit; turn++) tick(fight);
+    const win = fight.report.win;
+    return { win, turns: fight.report.turns, hpLeft: win ? 0 : fight.hp, damage: fight.report.damage };
+  }
   function nextWave(state) {
     if (!state || state.phase !== 'report' || !state.report || !state.report.win || state.wave >= 8) return state;
     state.wave++;
@@ -623,5 +633,5 @@
     } catch (_) { return false; }
   }
 
-  return Object.freeze({ MODULES, LOADOUTS, SECTORS, OBJECTIVES, UPGRADES, ENEMIES, createRun, selectSlot, installModule, moveSlot, relocateSlot, chooseRoute, reroll, buyUpgrade, getUpgradeCost, getMachineLevel, getModuleStats, getMachineUpgrade, upgradeMachine, startBattle, tick, nextWave, canStart, getBattlePreview, getHints, validateRun, getSynergies, getSynergyBonus, canConnectSlots, connectSlots, disconnectSlots, getTurnSummary });
+  return Object.freeze({ MODULES, LOADOUTS, SECTORS, OBJECTIVES, UPGRADES, ENEMIES, createRun, selectSlot, installModule, moveSlot, relocateSlot, chooseRoute, reroll, buyUpgrade, getUpgradeCost, getMachineLevel, getModuleStats, getMachineUpgrade, upgradeMachine, startBattle, tick, nextWave, canStart, getForecast, getBattlePreview, getHints, validateRun, getSynergies, getSynergyBonus, canConnectSlots, connectSlots, disconnectSlots, getTurnSummary });
 });
