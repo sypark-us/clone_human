@@ -194,6 +194,17 @@
     const lane = SECTOR_BY_ID[state.sectorId].lanes[Math.floor(state.positions[slot].x / 4)];
     return lane.kind === kind ? lane.value : 0;
   }
+  // Lane kinds that change a module's output, one per bonus() call site:
+  // mine, clone (clone only), mutation, recycle and bomb read their own kind;
+  // bomb, onclone and the basic attack (armyMultiplier, via PRODUCERS) read
+  // 'attack'; getBattlePreview's loss reduction (DEFENDERS) reads 'defense'.
+  function terrainKinds(id) {
+    const kinds = [];
+    if (['mine', 'clone', 'mutation', 'recycle', 'bomb'].includes(id)) kinds.push(id);
+    if (id === 'bomb' || id === 'onclone' || PRODUCERS.includes(id)) kinds.push('attack');
+    if (DEFENDERS.includes(id)) kinds.push('defense');
+    return kinds;
+  }
   function armyMultiplier(state) {
     return state.slots.reduce((value, id, slot) => PRODUCERS.includes(id) ? Math.max(value, bonus(state, 'attack', slot)) : value, 1);
   }
@@ -633,5 +644,5 @@
     } catch (_) { return false; }
   }
 
-  return Object.freeze({ MODULES, LOADOUTS, SECTORS, OBJECTIVES, UPGRADES, ENEMIES, createRun, selectSlot, installModule, moveSlot, relocateSlot, chooseRoute, reroll, buyUpgrade, getUpgradeCost, getMachineLevel, getModuleStats, getMachineUpgrade, upgradeMachine, startBattle, tick, nextWave, canStart, getForecast, getBattlePreview, getHints, validateRun, getSynergies, getSynergyBonus, canConnectSlots, connectSlots, disconnectSlots, getTurnSummary });
+  return Object.freeze({ MODULES, LOADOUTS, SECTORS, OBJECTIVES, UPGRADES, ENEMIES, createRun, selectSlot, installModule, moveSlot, relocateSlot, chooseRoute, reroll, buyUpgrade, getUpgradeCost, getMachineLevel, getModuleStats, getMachineUpgrade, upgradeMachine, startBattle, tick, nextWave, canStart, getForecast, getBattlePreview, terrainKinds, getHints, validateRun, getSynergies, getSynergyBonus, canConnectSlots, connectSlots, disconnectSlots, getTurnSummary });
 });

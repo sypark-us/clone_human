@@ -286,7 +286,7 @@
     $('step-button').hidden = run.phase !== 'battle';
     $('step-button').disabled = !paused;
     $('build-status').textContent = t(run.phase === 'prepare' ? '우클릭: 설비 강화' : '관찰 모드');
-    $('map-instruction').textContent = t(connecting ? '빛나는 설비를 선택해 연결하세요. Esc로 취소합니다.' : moving ? '목적지를 선택하세요. 이미 설비가 있는 땅은 서로 위치를 바꿉니다.' : run.phase === 'prepare' ? '설비끼리 드래그해 위치 교환 · 클릭으로 선택' : '컨베이어 순서로 생산됩니다. 전투 중에는 배치가 잠깁니다.');
+    $('map-instruction').textContent = t(connecting ? '빛나는 설비를 선택해 연결하세요. Esc로 취소합니다.' : moving ? '목적지를 선택하세요. 이미 설비가 있는 땅은 서로 위치를 바꿉니다.' : run.phase === 'prepare' ? '설비를 어느 땅으로든 드래그 · 생산은 위에서 아래, 왼쪽에서 오른쪽 순서' : '컨베이어 순서로 생산됩니다. 전투 중에는 배치가 잠깁니다.');
   }
   function render() {
     const focusedSlot = document.activeElement?.dataset.slot;

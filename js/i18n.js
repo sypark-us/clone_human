@@ -212,7 +212,7 @@
     "전투": "Battle",
     "에너지 +4 / 턴": "+4 energy / turn",
     "기본: {effect}": "Base: {effect}",
-    "설비끼리 드래그해 위치 교환 · 클릭으로 선택": "Drag machines to swap · Click to select",
+    "설비를 어느 땅으로든 드래그 · 생산은 위에서 아래, 왼쪽에서 오른쪽 순서": "Drag machines anywhere · production runs top to bottom, left to right",
     "전투 일시정지됨": "Battle paused",
     "반격 손실 -{amount}": "Retaliation −{amount}",
     "경로 상세 정보": "Route details",

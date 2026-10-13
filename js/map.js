@@ -45,6 +45,10 @@
     const stats = root.CloneHumanEngine.getModuleStats(id, level), entry = summaries[id];
     return entry && stats ? t(entry[0], { ...stats, amount: stats[entry[1]] }) : t('빈 슬롯에 새 설비를 설치하세요.');
   }
+  // A lane's own colour tints its band, edges it and tags the chips of machines it boosts.
+  const LANE_COLORS = { mine: '#e2c15a', clone: '#6fd8a8', attack: '#ea5f5f', defense: '#6fb2e0', bomb: '#f08a3c', mutation: '#b69af0', recycle: '#5fd0d0' };
+  const laneColor = lane => LANE_COLORS[lane?.kind] || '#c6ccae';
+  const laneChip = lane => (lane.kind === 'attack' || lane.kind === 'bomb' ? '×' : lane.kind === 'defense' ? '−' : '+') + lane.value;
   const center = pos => ({ x: pos.x * 80 + 40, y: pos.y * 80 + 44 });
   const round = value => Math.round(value * 10) / 10;
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -79,6 +83,7 @@
       this.tiles = container.querySelector('.map-tiles');
       // Turn effects live in their own layers: render() rebuilds belts and
       // tiles, and must not cut an in-flight timeline short.
+      this.washes = [...container.querySelectorAll('.zone-wash')];
       this.fx = container.querySelector('.map-fx');
       this.floats = container.querySelector('.map-floats');
       this.result = container.querySelector('.map-result');
@@ -165,10 +170,9 @@
       title.textContent = t(this.engine.MODULES[id].name);
       effect.textContent = t('기본: {effect}', { effect: summary(id, this.engine.getMachineLevel(this.state, slot)) });
       const lane = this.engine.SECTORS.find(s => s.id === this.state.sectorId).lanes[Math.floor(this.state.positions[slot].x / 4)];
-      const applies = { mine: ['mine'], clone: ['clone', 'attack', 'defense'], soldier: ['attack', 'defense'], mutation: ['mutation'], bomb: ['bomb', 'attack'], recycle: ['recycle'], onclone: ['attack'], revive: ['defense'] };
       const bonus = this.engine.getSynergyBonus(this.state, slot);
       const lines = [];
-      if (applies[id]?.includes(lane.kind)) lines.push(t(lane.name));
+      if (this.engine.terrainKinds(id).includes(lane.kind)) lines.push(t(lane.name));
       if (bonus.costReduction) lines.push(t('비용 -1 E'));
       if (bonus.clones) lines.push(t('복제인간 +1'));
       if (bonus.damageMultiplier > 1) lines.push(t('폭파 피해 +20%'));
@@ -211,6 +215,7 @@
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('application/x-clone-human-slot', String(source));
       this.world.classList.add('drag-mode');
+      this.updateZones();
       this.buttons.forEach(button => {
         const bx = Number(button.dataset.x), by = Number(button.dataset.y);
         button.classList.toggle('drag-source', bx === x && by === y);
@@ -237,6 +242,20 @@
       this.draggedSlot = null;
       this.world.classList.remove('drag-mode');
       this.buttons.forEach(button => button.classList.remove('drag-source', 'swap-target', 'drop-target'));
+      this.updateZones();
+    }
+    updateZones() {
+      // Bands light up for the machine being dragged, else the selected one, using the engine's own applicability.
+      const state = this.state;
+      if (!state) return;
+      const lanes = this.engine.SECTORS.find(item => item.id === state.sectorId)?.lanes || [];
+      const slot = this.draggedSlot ?? (state.phase === 'prepare' ? state.selectedSlot : -1);
+      const kinds = this.engine.terrainKinds(state.slots[slot]);
+      this.washes.forEach((wash, i) => {
+        const on = !!lanes[i] && kinds.includes(lanes[i].kind);
+        wash.classList.toggle('zone-hot', on);
+        this.labels?.[i]?.classList.toggle('zone-hot', on);
+      });
     }
     interact(x, y) {
       if (!this.state || this.state.phase !== 'prepare') return;
@@ -292,7 +311,7 @@
         button.draggable = !!kind && this.canDrag();
         button.setAttribute('aria-pressed', String(slot !== -1 && slot === state.selectedSlot));
         if (slot !== -1) {
-          button.innerHTML = '<span class="machine-number">' + (slot + 1) + '</span>' + (kind ? machine(kind) + '<span class="machine-level" aria-hidden="true">Lv.' + level + '</span>' : '<span class="empty-pad"><span>+</span></span>') + '<span class="machine-label">' + t(module?.name || '빈 설비') + '</span>';
+          button.innerHTML = '<span class="machine-number">' + (slot + 1) + '</span>' + (kind ? machine(kind) + '<span class="machine-level" aria-hidden="true">Lv.' + level + '</span>' : '<span class="empty-pad"><span>+</span></span>') + '<span class="machine-label">' + t(module?.name || '빈 설비') + '</span>' + (kind && zone && this.engine.terrainKinds(kind).includes(zone.kind) ? '<span class="terrain-chip" data-kind="' + zone.kind + '" style="--lane-color:' + laneColor(zone) + '" aria-hidden="true">' + laneChip(zone) + '</span>' : '');
         } else {
           const ore = ((x * 13 + y * 19) % 17 === 0 || (x < 3 && y === 5));
           button.innerHTML = ore ? '<span class="ore ore-' + Math.floor(x / 4) + '" aria-hidden="true"><i></i><i></i><i></i></span>' : '';
@@ -302,10 +321,23 @@
       const labels = this.container.querySelector('.map-zone-labels');
       labels.replaceChildren();
       (sector?.lanes || []).forEach((lane, i) => {
-        const label = document.createElement('span');
-        label.textContent = ['A', 'B', 'C'][i] + ' / ' + t(lane.name);
+        // The bonus after the name never truncates, so a narrow band still reads its value.
+        const label = document.createElement('span'), name = document.createElement('span'), effect = document.createElement('span');
+        const [head, ...rest] = t(lane.name).split(' · ');
+        name.textContent = ['A', 'B', 'C'][i] + ' / ' + head; effect.textContent = rest.length ? ' · ' + rest.join(' · ') : '';
+        label.title = name.textContent + effect.textContent;
+        label.append(name, effect);
+        label.style.setProperty('--lane-color', laneColor(lane));
         labels.append(label);
+        const wash = this.washes[i], color = laneColor(lane);
+        wash.dataset.kind = lane.kind;
+        wash.style.setProperty('--lane-color', color);
+        wash.style.setProperty('--lane-wash', color + '1c');
+        wash.style.setProperty('--lane-hot', color + '4d');
+        wash.style.setProperty('--lane-edge', color + 'a6');
       });
+      this.labels = [...labels.children];
+      this.updateZones();
       this.refreshTooltip();
     }
     playTurn(events, durationMs) {
