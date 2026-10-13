@@ -193,8 +193,26 @@ test('kill rewards trigger exactly once and do not farm energy from post-kill ze
   s.hp = 1; E.tick(s);
   assert.equal(s.report.win, true);
   assert.equal(s.metrics.onkill.activations, 1); assert.equal(s.metrics.onkill.energy, 8);
-  assert.equal(s.metrics.autoclone.clones, 2); assert.equal(s.metrics.onclone.activations, 1);
+  assert.equal(s.metrics.autoclone.clones, 2); assert.equal(s.metrics.onclone.activations, 0);
   assert.equal(s.metrics.recycle.activations, 1);
+});
+
+test('a reaction resolved after the core dies is neither logged nor counted', () => {
+  const E = engine(); const s = battle(['bomb', 'onkill', 'autoclone', 'onclone'], { energy: 0, units: 3 });
+  s.hp = 1; E.tick(s);
+  assert.equal(s.report.win, true);
+  assert.equal(s.metrics.autoclone.clones, 2); assert.equal(s.metrics.autoclone.activations, 1);
+  assert.equal(s.metrics.onclone.activations, 0);
+  assert.equal(s.lastTurn.some(event => event.text === '복제 반응 공격'), false);
+});
+
+test('a boost with zero effective repeats is jammed, not activated', () => {
+  const E = engine(); const s = battle(['mine', 'boost'], { enemyId: 'disrupt', energy: 0, units: 0 });
+  E.tick(s);
+  assert.equal(s.metrics.mine.activations, 1);
+  assert.equal(s.metrics.boost.activations, 0);
+  const jam = s.lastTurn.find(event => event.slot === 1 && event.text === '시간 교란: 반복 없음');
+  assert.ok(jam, 'idle note expected'); assert.equal(jam.kind, 'idle');
 });
 
 test('defense objective accepts an early kill and pays its described reward', () => {

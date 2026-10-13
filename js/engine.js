@@ -422,7 +422,8 @@
         const event = queue.shift();
         processed++;
         if (event.kind === 'clone') {
-          forModule('onclone', slot => {
+          // A dead core takes no damage, so a reaction here would only log and count a no-op.
+          if (state.hp > 0) forModule('onclone', slot => {
             activate('onclone', slot, '복제 반응 공격');
             damage(Math.round(event.amount * state.attack * stats[slot].multiplier * (bonus(state, 'attack', slot) || 1)), 'onclone', slot);
           });
@@ -458,10 +459,11 @@
     function act(id, slot) {
       if (!id || (!ACTIVE.includes(id) && id !== 'echo' && id !== 'boost')) return;
       if (id === 'echo' || id === 'boost') {
-        activate(id, slot);
         const previous = state.slots[slot - 1];
+        const repeats = Math.max(0, stats[slot].repeats - (state.enemyId === 'disrupt' ? 1 : 0));
+        if (!repeats) { note(state, slot, 'idle', '시간 교란: 반복 없음'); return; }
+        activate(id, slot);
         if (ACTIVE.includes(previous)) {
-          const repeats = Math.max(0, stats[slot].repeats - (state.enemyId === 'disrupt' ? 1 : 0));
           for (let i = 0; i < repeats && state.hp > 0; i++) { act(previous, slot - 1); flush(); }
         }
         return;
