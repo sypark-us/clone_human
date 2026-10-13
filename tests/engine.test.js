@@ -316,7 +316,7 @@ test('reports stay immutable until nextWave and cannot pay rewards twice', () =>
   E.startBattle(s); E.tick(s); E.buyUpgrade(s, 'power'); E.reroll(s); E.selectSlot(s, 2); E.chooseRoute(s, 1);
   assert.deepEqual(s, before);
   E.nextWave(s); const advanced = copy(s); E.nextWave(s); assert.deepEqual(s, advanced);
-  assert.equal(s.energy, before.energy); assert.equal(s.units, before.units + 3); assert.equal(s.report, null);
+  assert.equal(s.energy, before.energy); assert.equal(s.units, Math.ceil(before.units / 2) + 3); assert.equal(s.report, null);
 });
 
 test('resource production caps remain finite and valid at accepted save bounds', () => {

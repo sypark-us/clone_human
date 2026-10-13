@@ -93,7 +93,9 @@
   const ACTIVE = ['mine', 'clone', 'soldier', 'mutation', 'bomb'];
   const PRODUCERS = ['clone', 'soldier'];
   const DEFENDERS = ['clone', 'soldier', 'revive'];
-  const WAVE_HP = [35, 90, 180, 330, 560, 900, 1400, 2150];
+  const WAVE_HP = [160, 320, 460, 600, 680, 840, 980, 1080];
+  // Saves from before the rebalance keep their wave HP until the next battle reset.
+  const LEGACY_WAVE_HP = [35, 90, 180, 330, 560, 900, 1400, 2150];
   const emptyMetrics = () => Object.fromEntries(METRIC_IDS.map(id => [id, { activations: 0, damage: 0, clones: 0, energy: 0 }]));
   const preparing = state => !!state && state.phase === 'prepare';
   const integer = (value, min, max) => Number.isSafeInteger(value) && value >= min && value <= max;
@@ -274,7 +276,7 @@
   function getBattlePreview(state) {
     const maxHp = Math.round(WAVE_HP[state.wave - 1] * (state.enemyId === 'swarm' ? 0.75 : 1));
     const defense = state.slots.reduce((value, id, slot) => value + (DEFENDERS.includes(id) ? bonus(state, 'defense', slot) : 0), 0);
-    const attack = Math.max(0, Math.ceil(state.wave * 0.65) + (state.enemyId === 'swarm' ? 2 : 0) + (state.objectiveId === 'survive' ? 1 : 0) - state.upgrades.fort - defense);
+    const attack = Math.max(0, Math.ceil(state.wave * 0.5) + (state.enemyId === 'swarm' ? 2 : 0) + (state.objectiveId === 'survive' ? 1 : 0) - state.upgrades.fort - defense);
     if (state.phase !== 'prepare') return { hp: state.hp, maxHp: state.maxHp, shield: state.shield, attack: state.enemyAttack, limit: OBJECTIVES[state.objectiveId].limit };
     return { hp: maxHp, maxHp, shield: state.wave >= 4 ? state.wave * 4 : 0, attack, limit: OBJECTIVES[state.objectiveId].limit };
   }
@@ -527,6 +529,11 @@
     if (!state || state.phase !== 'report' || !state.report || !state.report.win || state.wave >= 8) return state;
     state.wave++;
     state.phase = 'prepare';
+    // Half of the army and of the attack gained above the loadout carries over,
+    // so an early snowball cannot win every later wave by itself.
+    const base = LOADOUTS.find(loadout => loadout.id === state.loadoutId).attack;
+    state.units = Math.ceil(state.units / 2);
+    state.attack = Math.max(1, base + Math.floor((state.attack - base) / 2));
     gainUnits(state, 3);
     state.needsReward = true;
     const empty = state.slots.indexOf(null);
@@ -584,11 +591,11 @@
       if (!keys(value.upgrades, ['power', 'training', 'fort']) || !Object.values(value.upgrades).every(level => integer(level, 0, 3))) return false;
       const limit = OBJECTIVES[value.objectiveId].limit;
       if (!integer(value.turn, 0, limit) || !integer(value.maxHp, 1, MAX_RESOURCE) || !integer(value.hp, 0, value.maxHp) || !integer(value.shield, 0, MAX_RESOURCE) || !integer(value.enemyAttack, 0, 100)) return false;
-      if (value.maxHp !== Math.round(WAVE_HP[value.wave - 1] * (value.enemyId === 'swarm' ? 0.75 : 1))) return false;
+      if (![WAVE_HP, LEGACY_WAVE_HP].some(table => value.maxHp === Math.round(table[value.wave - 1] * (value.enemyId === 'swarm' ? 0.75 : 1)))) return false;
       if (!validMetrics(value.metrics) || !integer(value.totalDamage, 0, MAX_METRIC) || !integer(value.eventsTotal, 0, value.turn * EVENT_LIMIT) || !integer(value.chainPeak, 0, Math.min(EVENT_LIMIT, value.eventsTotal))) return false;
       if (!METRIC_IDS.every(id => value.metrics[id].activations <= value.turn * EVENT_LIMIT * 8 && value.metrics[id].energy <= value.metrics[id].activations * (value.version === 3 ? 16 : 10) && value.metrics[id].clones <= value.metrics[id].activations * (value.version === 3 ? 6 : id === 'clone' ? 4 : 3))) return false;
       const waveDamage = METRIC_IDS.reduce((sum, id) => sum + value.metrics[id].damage, 0);
-      if (waveDamage !== value.maxHp - value.hp || value.totalDamage < waveDamage || value.totalDamage > WAVE_HP.slice(0, value.wave - 1).reduce((sum, hp) => sum + hp, 0) + waveDamage) return false;
+      if (waveDamage !== value.maxHp - value.hp || value.totalDamage < waveDamage || value.totalDamage > WAVE_HP.slice(0, value.wave - 1).reduce((sum, hp, index) => sum + Math.max(hp, LEGACY_WAVE_HP[index]), 0) + waveDamage) return false;
       if (!Array.isArray(value.log) || value.log.length > LOG_LIMIT || !denseArray(value.log, value.log.length) || !value.log.every(validText)) return false;
       const eventKinds = [...MODULE_IDS, 'damage', 'idle', 'energy', 'drain', 'loss', 'shield'];
       if (!Array.isArray(value.lastTurn) || value.lastTurn.length > TURN_LOG_LIMIT || !denseArray(value.lastTurn, value.lastTurn.length) || !value.lastTurn.every(event => keys(event, ['slot', 'kind', 'text']) && integer(event.slot, -1, 7) && eventKinds.includes(event.kind) && validText(event.text))) return false;

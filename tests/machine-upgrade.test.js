@@ -64,7 +64,7 @@ test('each active and reactive machine applies its level-three effect to real co
     assert.equal(E.validateRun(s), true, id + ' upgraded combat must save');
   }
   for (const id of ['onkill', 'autoclone']) {
-    const s = upgraded([id], 3); s.units = 30; E.startBattle(s); E.tick(s);
+    const s = upgraded([id], 3); s.units = 100; E.startBattle(s); E.tick(s);
     assert.equal(s.phase, 'report'); assert.equal(s.metrics[id][id === 'onkill' ? 'energy' : 'clones'], id === 'onkill' ? 16 : 4);
     assert.equal(E.validateRun(s), true, id);
   }
