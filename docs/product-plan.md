@@ -26,6 +26,20 @@ Map zones derive from x: 0..3 A, 4..7 B, 8..11 C. Terrain multiplier/effect come
 
 Persistence exports `CloneHumanStorage`: `createStore(storage,validateRun)` with methods `load()` -> `{run,settings,error}`, `save(run,settings)` -> `{ok,error}`, `clearRun(settings)` -> `{ok,error}`. Settings `{music:false,sfx:true,speed:1,tutorialSeen:false}`. Errors are plain strings/null. Invalid records never crash the game. The controller explicitly pauses restored battles; saves occur after every committed action/turn, never mid-turn.
 
+## Rules and numbers (balance pass, 2026-10-13)
+
+All numbers live in `js/engine.js`; `tests/docs.test.js` checks the HP table and costs below against the engine.
+
+- Enemy core HP by wave (`WAVE_HP`): 160 / 320 / 460 / 600 / 680 / 840 / 980 / 1080; swarm ×0.75. From wave 4 the core starts with `wave × 4` shield and regenerates `wave × 2` every third turn.
+- Retaliation per turn: `ceil(wave × 0.5)` clones, plus 2 for the swarm core and for the defense objective, minus the fort upgrade and defense-lane bonus (`getBattlePreview`).
+- Half carry-over between waves (`nextWave`): clones become `ceil(clones / 2) + 3`; attack becomes `base + floor(gain / 2)`, where `base` is the loadout's starting attack and `gain` is what mutation added above it (minimum 1). An early snowball cannot win every later wave alone.
+- Kill triggers: Kill Salvager and Auto Cloner fire at the first crossing to half core HP and again on the kill, once each. The half-HP crossing is derived from the damage event, so no save field was added.
+- Demolition Launcher consumes 1 clone and deals `18 + attack × 2` (Lv.1; 22 / 26 base at Lv.2 / 3), so it scales with army attack.
+- Module numbers at Lv.1 / 2 / 3: miner energy 2 / 4 / 6; clone vat 4 E for 2 / 3 / 4 clones; training station 2 E for 2 / 3 / 4 clones; mutation lab 5 E for attack +1 / 2 / 3; time echo repeats 3 / 4 / 5; amplifier 1 / 2 / 3; recycler energy 2 / 3 / 4; clone reactor ×1 / 1.25 / 1.5; kill salvager energy 10 / 13 / 16; auto cloner clones 2 / 3 / 4; reviver clones 1 / 2 / 3.
+- Costs: factory upgrades 12 / 18 / 24 E (`getUpgradeCost`); machine upgrades Lv.2 12 E, Lv.3 24 E.
+- Route rewards: normal +6 E in 12 turns, rush +12 E in 8 turns, defense +12 E in 12 turns with +2 clone losses, each plus the speed bonus `max(4, 12 − turn)`.
+- Feel: a turn lasts 1.8 s at 1x (`1800 / speed` in `js/app.js`). A battle's result is a banner on the map instead of a dialog (the report opens on request), the start button shows an exact forecast computed by the same engine tick on a copy (`getForecast`), and every machine's float shows the amount the engine applied that turn.
+
 ## Decisions
 
 - Preserve Korean and all twelve module concepts. A balanced starter is default; specialists are selectable.

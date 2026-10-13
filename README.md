@@ -4,7 +4,7 @@
 
 Use the **한국어 / English** selector in the header to switch languages at any time. Your choice is saved in this browser; existing games and battle logs work in either language.
 
-On desktop and laptop screens, the factory map, resources, production order, battle status, and action controls fit in one gameplay screen. Use **Route / Build / Machine / Upgrades** tabs for factory management. Battle logs and results open in dialogs. Phones and small windows keep the scrolling layout; longer details can scroll inside their panel or dialog.
+On desktop and laptop screens, the factory map, resources, production order, battle status, and action controls fit in one gameplay screen. Use **Route / Build / Machine / Upgrades** tabs for factory management. The battle log opens in a dialog; a battle's result appears as a banner on the map. Phones and small windows keep the scrolling layout; longer details can scroll inside their panel or dialog.
 
 ## 플레이
 
@@ -25,6 +25,20 @@ On desktop and laptop screens, the factory map, resources, production order, bat
 - 수동 컨베이어 건설, 무한 확장, 경로 길이에 따른 비용은 없습니다. 장식용 광석과 폐허는 건설을 막지 않습니다.
 - 12종 모듈, 6종 시작 설계, 5종 지역, 6종 적, 3종 공장 업그레이드를 조합할 수 있습니다.
 - 일반 전투와 방어선 돌파는 12턴, 긴급 돌파는 8턴 제한입니다. 빠른 격파는 항상 성공입니다. 승리 보상은 코어 정복 +6 E, 긴급 돌파 +12 E, 방어선 돌파 +12 E(병사 손실 +2)에 속도 보너스가 더해집니다.
+
+### 전투 규칙과 수치
+
+수치는 모두 `js/engine.js`의 값이며, `tests/docs.test.js`가 적 체력과 확장 비용이 이 문서와 일치하는지 검사합니다.
+
+- **적 코어 체력** (`WAVE_HP`, 웨이브 1~8): 160 / 320 / 460 / 600 / 680 / 840 / 980 / 1080. 군집 코어는 ×0.75. 웨이브 4부터 방어막 `웨이브 × 4`로 시작하고 3턴마다 `웨이브 × 2` 재생합니다.
+- **적 반격**: 턴마다 병사 `ceil(wave × 0.5)`명을 잃습니다. 군집 코어 +2, 방어선 돌파 +2, 방어벽 증설과 방어 구역 보너스만큼 감소합니다(`getBattlePreview`).
+- **웨이브 사이 절반 이월** (`nextWave`): 병사는 `ceil(clones / 2) + 3`, 공격력은 `base + floor(gain / 2)`입니다. `base`는 시작 설계의 공격력, `gain`은 그 위로 올린 양이며, 공격력은 최소 1입니다. 눈덩이가 다음 웨이브를 혼자 이기지 못하게 합니다.
+- **처치 트리거**: 처치 회수기와 자동 복제기는 적 코어 체력이 처음 절반 이하가 될 때와 코어 격파 때, 각각 한 번씩 발동합니다.
+- **자폭 발사대**: 병사 1명을 소비하고 피해 `18 + 공격력 × 2`(Lv.1; Lv.2/3은 기본 22/26). 군대의 공격력이 오를수록 폭발이 커집니다.
+- **설비 수치 (Lv.1 / Lv.2 / Lv.3)**: 채굴기 에너지 2 / 4 / 6, 복제 배양기 4 E → 병사 2 / 3 / 4, 훈련소 2 E → 병사 2 / 3 / 4, 변이 연구소 5 E → 공격력 +1 / 2 / 3, 시간 복제기 추가 실행 3 / 4 / 5, 증폭기 1 / 2 / 3, 회수기 에너지 2 / 3 / 4, 복제 반응기 ×1 / 1.25 / 1.5, 처치 회수기 에너지 10 / 13 / 16, 자동 복제기 병사 2 / 3 / 4, 재생 장치 병사 1 / 2 / 3.
+- **비용**: 공장 확장(발전기·복제 배양조·방어벽) 12 / 18 / 24 E, 개별 설비 강화 Lv.2 12 E, Lv.3 24 E.
+- **경로 보상**: 코어 정복 +6 E(12턴), 긴급 돌파 +12 E(8턴), 방어선 돌파 +12 E(12턴, 병사 손실 +2). 모두 `max(4, 12 − 턴)`의 속도 보너스가 더해집니다. 빠른 경로는 쉽게 지는 대신 더 받고, 안전한 경로는 덜 받습니다.
+- **연출과 예상**: 전투 턴은 1× 기준 1.8초(`1800 / 속도`)입니다. 전투가 끝나면 대화상자 대신 지도 위 배너가 나타나고, 시작 버튼 옆 **예상**이 같은 엔진으로 결과를 미리 계산합니다. 각 설비의 떠오르는 수치는 그 턴에 엔진이 실제로 적용한 양입니다.
 
 ### 조작과 음악
 
