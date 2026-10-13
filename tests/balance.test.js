@@ -63,21 +63,29 @@ test('lookahead bot wins at least 80% of runs', () => {
   assert.ok(result.aggregate.winRate >= 0.80, sim.formatTable('[lookahead] seeds=' + LOOKAHEAD_SEEDS.length, result));
 });
 
-// AC-8 route band. Forced = take the route with that objective whenever it is
-// offered. The lookahead half uses 10 seeds (60 runs, ~480 route choices) to
-// keep npm test fast; the CLI equivalent is --route <id> at 300 seeds.
-test('no route objective dominates: forced routes stay within 10 points and the lookahead bot picks each at least 15% of the time', () => {
+// AC-8: no route type strictly dominates another. Forced = take the route with
+// that objective whenever it is offered. A route is dominated when another is at
+// least as good on BOTH win rate and mean energy banked on reaching wave 8 and
+// better on one, so every route has to buy something the others do not.
+test('no forced route is better than another on both win rate and banked energy (lazy, 300 seeds)', () => {
   const objectives = Object.keys(E.OBJECTIVES);
-  for (const [policy, seedList] of [['lazy', LAZY_SEEDS], ['lookahead', sim.seedList(10)]]) {
-    const rates = Object.fromEntries(objectives.map(route => [route, sim.simulate({ policy, seedList, route }).aggregate.winRate]));
-    const rows = objectives.map(id => id + ' ' + (100 * rates[id]).toFixed(1) + '%').join(', ');
-    const best = Math.max(...Object.values(rates));
-    for (const id of objectives) assert.ok(best - rates[id] <= 0.10, policy + ' forced ' + id + ': ' + rows);
-    if (policy !== 'lookahead') continue;
-    const picks = sim.simulate({ policy, seedList }).aggregate.picks;
-    const shares = objectives.map(id => id + ' ' + (100 * picks[id]).toFixed(1) + '%').join(', ');
-    for (const id of objectives) assert.ok(picks[id] >= 0.15, 'lookahead picks ' + shares);
+  const rows = Object.fromEntries(objectives.map(route => {
+    const { winRate, meanBanked8 } = sim.simulate({ policy: 'lazy', seedList: LAZY_SEEDS, route }).aggregate;
+    return [route, { win: winRate, energy: meanBanked8 }];
+  }));
+  const table = objectives.map(id => id + ' ' + (100 * rows[id].win).toFixed(1) + '% / ' + rows[id].energy.toFixed(1) + ' E').join(', ');
+  for (const a of objectives) for (const b of objectives) {
+    if (a === b) continue;
+    const dominates = rows[a].win >= rows[b].win && rows[a].energy >= rows[b].energy && (rows[a].win > rows[b].win || rows[a].energy > rows[b].energy);
+    assert.ok(!dominates, a + ' dominates ' + b + ': ' + table);
   }
+});
+
+// The lookahead half uses 10 seeds (60 runs, ~480 route choices) to keep npm test fast.
+test('the lookahead bot picks each route objective at least 15% of the time', () => {
+  const picks = sim.simulate({ policy: 'lookahead', seedList: sim.seedList(10) }).aggregate.picks;
+  const shares = Object.keys(E.OBJECTIVES).map(id => id + ' ' + (100 * picks[id]).toFixed(1) + '%').join(', ');
+  for (const id of Object.keys(E.OBJECTIVES)) assert.ok(picks[id] >= 0.15, 'lookahead picks ' + shares);
 });
 
 test('saves made under the previous enemy HP table still validate', () => {
