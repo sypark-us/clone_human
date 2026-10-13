@@ -34,6 +34,21 @@
   function enemyArt() {
     return '<svg viewBox="0 0 140 125" aria-hidden="true"><ellipse cx="70" cy="114" rx="53" ry="8" fill="#0a1112"/><path d="m36 63-17 10-9 35h13l13-19m68-26 17 10 9 35h-13l-13-19" fill="#684e48" stroke="#b98268" stroke-width="2"/><path d="m70 8 37 21 9 49-25 31H49L24 78l9-49z" fill="#3d3936" stroke="#927f64" stroke-width="2"/><path d="m38 31 32-17 32 17-8 24H46z" fill="#6c6250"/><path d="M39 63h62l-8 26H47z" fill="#1a2425"/><path d="M45 43h50l-8 14H53z" fill="#ed946c"/><path d="M51 72h38" stroke="#e7a17e" stroke-width="4"/><path d="M55 98v12m30-12v12M70 20v13" stroke="#a89070" stroke-width="4"/></svg>';
   }
+  // The factory yard: one prop per factory upgrade, drawn in the machines' outline style.
+  const YARD = [
+    { id: 'power', color: '#e2c15a', art: '<rect class="body" x="7" y="13" width="30" height="15" rx="2"/><path class="body" d="M11 13V7h6v6M25 13V9h5v4"/><path class="mark" d="m23 15-5 6h4l-2 5 6-7h-4z"/><path class="mark" d="M37 21h6"/><path d="M3 29h42"/>' },
+    { id: 'training', color: '#7ed9b2', art: '<rect class="body" x="16" y="4" width="16" height="24" rx="6"/><path d="M16 10h16M16 22h16"/><circle class="mark" cx="22" cy="17" r="1.6"/><circle class="mark" cx="27" cy="20" r="1.2"/><circle class="mark" cx="26" cy="13.5" r="1"/><path d="M11 29h26"/>' },
+    { id: 'fort', color: '#9cc4dc', art: '<path class="body" d="M6 28V10h7v4h7v-4h7v4h7v-4h7v18z"/><path class="mark" d="M6 20h35M16 20v8M30 20v8M23 14v6"/>' }
+  ];
+  function yardProp(entry, maxLevel) {
+    const prop = document.createElement('div');
+    prop.className = 'yard-prop unbuilt'; prop.dataset.prop = entry.id;
+    prop.setAttribute('role', 'img');
+    prop.style.setProperty('--prop-color', entry.color);
+    const pips = Array.from({ length: maxLevel }, () => '<i class="yard-pip"></i>').join('');
+    prop.innerHTML = '<svg viewBox="0 0 48 32" aria-hidden="true">' + entry.art + '</svg><span class="yard-pips" aria-hidden="true">' + pips + '</span>';
+    return prop;
+  }
   const summaries = {
     mine: ['에너지 +{amount} / 턴', 'energy'], clone: ['{cost} E → 복제인간 {amount}명', 'clones'], soldier: ['{cost} E → 복제인간 {amount}명', 'clones'],
     mutation: ['{cost} E → 공격력 +{amount}', 'attack'], bomb: ['복제인간 {used}명 → 피해 {amount} + 공격력 × {perAttack}', 'damage'],
@@ -76,8 +91,10 @@
       this.zoom = 1;
       this.moving = false;
       this.draggedSlot = null;
-      container.innerHTML = '<div class="map-world"><div class="map-terrain"></div><div class="zone-wash zone-a"></div><div class="zone-wash zone-b"></div><div class="zone-wash zone-c"></div><div class="map-grid"></div><svg class="map-belts" viewBox="0 0 960 560" aria-hidden="true"></svg><svg class="map-synergies" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-tiles" role="grid" aria-label="공장 지도. 방향키로 탐색하고 Enter로 선택합니다."></div><div class="map-zone-labels" aria-hidden="true"></div><svg class="map-fx" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-floats" aria-hidden="true"></div><div class="map-result" hidden><strong class="map-result-title"></strong><span class="map-result-reward"></span><div class="map-result-actions"><button type="button" id="map-result-action" class="primary-button"></button><button type="button" id="map-result-report" class="secondary-button"></button></div></div></div>';
+      container.innerHTML = '<div class="map-stage"><div class="map-zone-labels" aria-hidden="true"></div><div class="map-world"><div class="map-terrain"></div><div class="zone-wash zone-a"></div><div class="zone-wash zone-b"></div><div class="zone-wash zone-c"></div><div class="map-grid"></div><svg class="map-belts" viewBox="0 0 960 560" aria-hidden="true"></svg><svg class="map-synergies" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-tiles" role="grid" aria-label="공장 지도. 방향키로 탐색하고 Enter로 선택합니다."></div><svg class="map-fx" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-floats" aria-hidden="true"></div><div class="map-result" hidden><strong class="map-result-title"></strong><span class="map-result-reward"></span><div class="map-result-actions"><button type="button" id="map-result-action" class="primary-button"></button><button type="button" id="map-result-report" class="secondary-button"></button></div></div></div><div class="map-yard" role="group"></div></div>';
+      this.stage = container.querySelector('.map-stage');
       this.world = container.querySelector('.map-world');
+      this.yard = container.querySelector('.map-yard');
       this.belts = container.querySelector('.map-belts');
       this.synergies = container.querySelector('.map-synergies');
       this.tiles = container.querySelector('.map-tiles');
@@ -88,6 +105,9 @@
       this.floats = container.querySelector('.map-floats');
       this.result = container.querySelector('.map-result');
       this.fxUntil = 0;
+      // Props are built once: render() only updates them, so a pulse in flight is never cut short.
+      this.props = Object.fromEntries(YARD.map(entry => [entry.id, yardProp(entry, this.engine.UPGRADES.find(item => item.id === entry.id).maxLevel)]));
+      this.yard.append(...Object.values(this.props));
       for (let y = 0; y < 7; y++) {
         const row = document.createElement('div');
         row.className = 'map-row'; row.setAttribute('role', 'row');
@@ -280,8 +300,8 @@
     }
     setZoom(value) {
       this.zoom = Math.max(1, Math.min(1.8, value));
-      this.world.style.width = (this.zoom * 100) + '%';
-      this.world.style.setProperty('--map-zoom', this.zoom);
+      this.stage.style.width = (this.zoom * 100) + '%';
+      this.stage.style.setProperty('--map-zoom', this.zoom);
       this.positionTooltip();
     }
     render(state, moving, paused, connecting = false) {
@@ -337,11 +357,52 @@
         wash.style.setProperty('--lane-edge', color + 'a6');
       });
       this.labels = [...labels.children];
+      this.renderYard(state);
       this.updateZones();
       this.refreshTooltip();
     }
+    renderYard(state) {
+      this.yard.setAttribute('aria-label', t('공장 마당'));
+      for (const upgrade of this.engine.UPGRADES) {
+        const prop = this.props[upgrade.id], level = state.upgrades[upgrade.id];
+        prop.classList.toggle('unbuilt', !level);
+        prop.setAttribute('aria-label', t(upgrade.name) + ' Lv.' + level);
+        prop.querySelectorAll('.yard-pip').forEach((pip, i) => pip.classList.toggle('on', i < level));
+      }
+    }
+    pulseYard(events, durationMs) {
+      // Global effects act on the props. The engine notes the generator and the
+      // enemy's retaliation, but not the vat's clones: playTurn runs once per
+      // tick and the vat adds its clones every tick, so a built vat pulses every turn.
+      const up = this.state.upgrades, acts = [];
+      const energy = events.find(event => event.slot === -1 && event.kind === 'energy');
+      if (energy && up.power) acts.push({ id: 'power', delay: 0, text: '+' + (/\d+/.exec(energy.text)?.[0] ?? '') + ' E', event: energy });
+      if (up.training) acts.push({ id: 'training', delay: 0 });
+      const loss = events.find(event => event.slot === -1 && event.kind === 'loss');
+      if (loss && up.fort) acts.push({ id: 'fort', delay: durationMs * 0.7 });
+      for (const act of acts) {
+        const prop = this.props[act.id], color = YARD.find(entry => entry.id === act.id).color;
+        prop.animate([
+          { transform: 'scale(1)', filter: 'drop-shadow(0 0 0 ' + color + ')' },
+          { transform: 'scale(1.18)', filter: 'drop-shadow(0 0 7px ' + color + ')', offset: .35 },
+          { transform: 'scale(1)', filter: 'drop-shadow(0 0 0 ' + color + ')' }
+        ], { duration: 520, delay: act.delay, easing: 'ease-out' });
+        if (!act.event) continue;
+        const float = document.createElement('span');
+        float.className = 'yard-float'; float.textContent = act.text;
+        float.dataset.fxSlot = act.event.slot; float.dataset.fxKind = act.event.kind; float.dataset.fxProp = act.id;
+        float.style.setProperty('--fx-color', color);
+        prop.append(float);
+        settle(float, float.animate([
+          { opacity: 0, transform: 'translate(-50%, 0) scale(.8)' },
+          { opacity: 1, transform: 'translate(-50%, -10px) scale(1.05)', offset: .3 },
+          { opacity: 0, transform: 'translate(-50%, -22px) scale(1)' }
+        ], { duration: 900, delay: act.delay, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'backwards' }));
+      }
+    }
     playTurn(events, durationMs) {
       if (reducedMotion.matches || !this.state || !Array.isArray(events)) return;
+      this.pulseYard(events, durationMs);
       const state = this.state, points = state.positions.map(center);
       const played = events.filter(event => event.slot >= 0 || event.kind === 'damage');
       if (!played.length) return;

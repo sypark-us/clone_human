@@ -135,7 +135,10 @@
   }
   function fitMap() {
     if (!desktop || game.hidden || !map.firstElementChild) return;
-    const width = Math.floor(Math.min(map.clientWidth, map.clientHeight * 12 / 7));
+    // The label strip above and the yard below the 12:7 grid take fixed height.
+    const stage = map.querySelector('.map-stage'), grid = stage?.querySelector('.map-world');
+    const strips = stage && grid ? stage.querySelector('.map-zone-labels').offsetHeight + stage.querySelector('.map-yard').offsetHeight : 0;
+    const width = Math.floor(Math.min(map.clientWidth, (map.clientHeight - strips) * 12 / 7));
     if (width > 0) map.style.setProperty('--map-fit-width', width + 'px');
   }
   function syncMode() {

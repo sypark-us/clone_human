@@ -8,6 +8,7 @@
   // renderers escape translated values when building markup.
   const english = {
     '설비 강화': 'Upgrade machine',
+    '공장 마당': 'Factory yard',
     '우클릭: 설비 강화': 'Right-click: upgrade',
     '현재: {effect}': 'Current: {effect}',
     '강화 후: {effect}': 'After upgrade: {effect}',
