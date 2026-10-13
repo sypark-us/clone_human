@@ -35,15 +35,15 @@
     return '<svg viewBox="0 0 140 125" aria-hidden="true"><ellipse cx="70" cy="114" rx="53" ry="8" fill="#0a1112"/><path d="m36 63-17 10-9 35h13l13-19m68-26 17 10 9 35h-13l-13-19" fill="#684e48" stroke="#b98268" stroke-width="2"/><path d="m70 8 37 21 9 49-25 31H49L24 78l9-49z" fill="#3d3936" stroke="#927f64" stroke-width="2"/><path d="m38 31 32-17 32 17-8 24H46z" fill="#6c6250"/><path d="M39 63h62l-8 26H47z" fill="#1a2425"/><path d="M45 43h50l-8 14H53z" fill="#ed946c"/><path d="M51 72h38" stroke="#e7a17e" stroke-width="4"/><path d="M55 98v12m30-12v12M70 20v13" stroke="#a89070" stroke-width="4"/></svg>';
   }
   const summaries = {
-    mine: ['에너지 +{amount} / 턴', 'energy'], clone: ['4 E → 복제인간 {amount}명', 'clones'], soldier: ['3 E → 복제인간 {amount}명', 'clones'],
-    mutation: ['5 E → 공격력 +{amount}', 'attack'], bomb: ['복제인간 2명 → 피해 {amount}', 'damage'],
+    mine: ['에너지 +{amount} / 턴', 'energy'], clone: ['{cost} E → 복제인간 {amount}명', 'clones'], soldier: ['{cost} E → 복제인간 {amount}명', 'clones'],
+    mutation: ['{cost} E → 공격력 +{amount}', 'attack'], bomb: ['복제인간 {used}명 → 피해 {amount} + 공격력 × {perAttack}', 'damage'],
     echo: ['앞 생산 설비 {amount}회 추가 실행', 'repeats'], boost: ['앞 생산 설비 {amount}회 추가 실행', 'repeats'],
     recycle: ['공격 적중 → +{amount} E', 'energy'], onclone: ['복제 → 추가 공격 ×{amount}', 'multiplier'],
-    onkill: ['코어 격파 → +{amount} E', 'energy'], autoclone: ['코어 격파 → 복제인간 +{amount}', 'clones'], revive: ['폭파 → 복제인간 {amount}명 복귀', 'clones']
+    onkill: ['코어 절반·격파 → +{amount} E', 'energy'], autoclone: ['코어 절반·격파 → 복제인간 +{amount}', 'clones'], revive: ['폭파 → 복제인간 {amount}명 복귀', 'clones']
   };
   function summary(id, level = 1) {
     const stats = root.CloneHumanEngine.getModuleStats(id, level), entry = summaries[id];
-    return entry && stats ? t(entry[0], { amount: stats[entry[1]] * (id === 'bomb' ? 2 : 1) }) : t('빈 슬롯에 새 설비를 설치하세요.');
+    return entry && stats ? t(entry[0], { ...stats, amount: stats[entry[1]] }) : t('빈 슬롯에 새 설비를 설치하세요.');
   }
   const center = pos => ({ x: pos.x * 80 + 40, y: pos.y * 80 + 44 });
   const round = value => Math.round(value * 10) / 10;

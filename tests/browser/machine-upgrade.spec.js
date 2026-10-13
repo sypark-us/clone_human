@@ -20,12 +20,12 @@ test('right-click previews then purchases an individual upgrade and persists thr
   await page.setViewportSize({ width: 1280, height: 720 }); await resume(page);
   const before = await read(page), miner = cell(page, before.positions[0]);
   await miner.click({ button: 'right' }); await expect(popup(page)).toBeVisible();
-  await expect(popup(page)).toContainText('Lv.1 → Lv.2'); await expect(popup(page)).toContainText('+4 energy / turn');
-  await expect(popup(page)).toContainText('+6 energy / turn'); expect((await read(page)).energy).toBe(before.energy);
+  await expect(popup(page)).toContainText('Lv.1 → Lv.2'); await expect(popup(page)).toContainText('+2 energy / turn');
+  await expect(popup(page)).toContainText('+4 energy / turn'); expect((await read(page)).energy).toBe(before.energy);
   await popup(page).getByRole('button', { name: 'Upgrade · 12 E', exact: true }).click();
   const bought = await read(page); expect(bought.energy).toBe(0); expect(bought.machineLevels[0]).toBe(2); expect(E.validateRun(bought)).toBe(true);
   await expect(popup(page)).toBeHidden(); await expect(miner.locator('.machine-level')).toHaveText('Lv.2');
-  await miner.hover(); await expect(page.getByRole('tooltip')).toContainText('+6 energy / turn');
+  await miner.hover(); await expect(page.getByRole('tooltip')).toContainText('+4 energy / turn');
   await miner.dragTo(cell(page, before.positions[1]));
   const moved = await read(page); expect(moved.positions).toEqual(before.positions);
   expect(moved.slots[1]).toBe(before.slots[0]); expect(moved.machineLevels.slice(0, 2)).toEqual([bought.machineLevels[1], bought.machineLevels[0]]);

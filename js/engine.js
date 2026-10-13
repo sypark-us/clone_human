@@ -21,17 +21,17 @@
   }
 
   const MODULES = freeze({
-    mine: { id: 'mine', name: '채굴기', description: '매 턴 에너지 +4. 광맥 구역에서 추가 생산.', kind: 'energy' },
+    mine: { id: 'mine', name: '채굴기', description: '매 턴 에너지 +2. 광맥 구역에서 추가 생산.', kind: 'energy' },
     clone: { id: 'clone', name: '복제 배양기', description: '에너지 4 → 병사 2명. 배양 구역에서 +1명.', kind: 'clone' },
-    soldier: { id: 'soldier', name: '훈련소', description: '에너지 3 → 병사 1명.', kind: 'clone' },
-    echo: { id: 'echo', name: '시간 복제기', description: '바로 앞 생산 모듈을 2회 추가 실행. 증폭기와 반응 모듈은 복제하지 않음.', kind: 'chain' },
+    soldier: { id: 'soldier', name: '훈련소', description: '에너지 2 → 병사 2명.', kind: 'clone' },
+    echo: { id: 'echo', name: '시간 복제기', description: '바로 앞 생산 모듈을 3회 추가 실행. 증폭기와 반응 모듈은 복제하지 않음.', kind: 'chain' },
     boost: { id: 'boost', name: '증폭기', description: '바로 앞 생산 모듈을 1회 추가 실행. 증폭기와 반응 모듈은 복제하지 않음.', kind: 'chain' },
-    bomb: { id: 'bomb', name: '자폭 발사대', description: '병사 최대 2명 소비. 병사 1명당 피해 14.', kind: 'attack' },
+    bomb: { id: 'bomb', name: '자폭 발사대', description: '병사 1명 소비. 피해 18 + 공격력 × 2.', kind: 'attack' },
     recycle: { id: 'recycle', name: '회수기', description: '코어 또는 방어막에 피해를 줄 때마다 에너지 +2.', kind: 'energy' },
-    mutation: { id: 'mutation', name: '변이 연구소', description: '에너지 5 → 병사당 공격력 영구 +2.', kind: 'clone' },
+    mutation: { id: 'mutation', name: '변이 연구소', description: '에너지 5 → 병사당 공격력 영구 +1.', kind: 'clone' },
     onclone: { id: 'onclone', name: '복제 반응기', description: '복제·훈련·처치 복제 시 새 병사 수 × 공격력만큼 추가 공격.', kind: 'attack' },
-    onkill: { id: 'onkill', name: '처치 회수기', description: '적 코어 처치 시 에너지 +8. 전투당 한 번.', kind: 'energy' },
-    autoclone: { id: 'autoclone', name: '자동 복제기', description: '적 코어 처치 시 병사 +2. 복제 반응도 발동.', kind: 'clone' },
+    onkill: { id: 'onkill', name: '처치 회수기', description: '적 코어 체력이 처음 절반 이하가 될 때와 처치 시 각각 에너지 +10.', kind: 'energy' },
+    autoclone: { id: 'autoclone', name: '자동 복제기', description: '적 코어 체력이 처음 절반 이하가 될 때와 처치 시 각각 병사 +2. 복제 반응도 발동.', kind: 'clone' },
     revive: { id: 'revive', name: '재생 장치', description: '자폭이 발동할 때마다 병사 1명 복귀. 복제 반응은 발동하지 않음.', kind: 'clone' }
   });
   const LOADOUTS = freeze([
@@ -101,10 +101,10 @@
   const integer = (value, min, max) => Number.isSafeInteger(value) && value >= min && value <= max;
 
   const MACHINE_STATS = freeze({
-    mine: { energy: [4, 6, 8] }, clone: { clones: [2, 3, 4] }, soldier: { clones: [1, 2, 3] },
-    mutation: { attack: [2, 3, 4] }, bomb: { damage: [14, 18, 22] },
-    echo: { repeats: [2, 3, 4] }, boost: { repeats: [1, 2, 3] }, recycle: { energy: [2, 3, 4] },
-    onclone: { multiplier: [1, 1.25, 1.5] }, onkill: { energy: [8, 12, 16] },
+    mine: { energy: [2, 4, 6] }, clone: { cost: [4, 4, 4], clones: [2, 3, 4] }, soldier: { cost: [2, 2, 2], clones: [2, 3, 4] },
+    mutation: { cost: [5, 5, 5], attack: [1, 2, 3] }, bomb: { used: [1, 1, 1], damage: [18, 22, 26], perAttack: [2, 2, 2] },
+    echo: { repeats: [3, 4, 5] }, boost: { repeats: [1, 2, 3] }, recycle: { energy: [2, 3, 4] },
+    onclone: { multiplier: [1, 1.25, 1.5] }, onkill: { energy: [10, 13, 16] },
     autoclone: { clones: [2, 3, 4] }, revive: { clones: [1, 2, 3] }
   });
   function getMachineLevel(state, slot) {
@@ -438,6 +438,8 @@
           const absorbed = Math.min(state.shield, event.amount);
           state.shield -= absorbed;
           const dealt = Math.min(state.hp, event.amount - absorbed);
+          // HP never rises mid-battle, so the hit that crosses half happens at most once.
+          const crossedHalf = state.hp > state.maxHp / 2 && state.hp - dealt <= state.maxHp / 2;
           state.hp -= dealt;
           state.totalDamage += dealt;
           state.metrics[event.source].damage += dealt;
@@ -447,6 +449,7 @@
             activate('recycle', slot, '피해 회수: 에너지 +' + amount);
             gainEnergy(state, amount, 'recycle');
           });
+          if (crossedHalf) enqueue('kill', 1, event.source, event.slot);
           if (state.hp === 0 && dealt > 0) enqueue('kill', 1, event.source, event.slot);
         } else if (event.kind === 'kill') {
           forModule('onkill', slot => { activate('onkill', slot); gainEnergy(state, stats[slot].energy, 'onkill'); });
@@ -473,22 +476,22 @@
       if (id === 'mine') {
         activate(id, slot); gainEnergy(state, stats[slot].energy + bonus(state, 'mine', slot), id);
       } else if (id === 'clone' || id === 'soldier') {
-        const cost = (id === 'clone' ? 4 : 3) + (state.enemyId === 'jam' ? 2 : 0) - synergies[slot].costReduction;
+        const cost = stats[slot].cost + (state.enemyId === 'jam' ? 2 : 0) - synergies[slot].costReduction;
         if (state.energy < cost) { note(state, slot, 'idle', '에너지 부족: ' + cost + ' 필요'); return; }
         activate(id, slot); state.energy -= cost;
         const amount = gainUnits(state, stats[slot].clones + (id === 'clone' ? bonus(state, 'clone', slot) : 0) + synergies[slot].clones, id);
         if (amount) enqueue('clone', amount, id, slot);
       } else if (id === 'mutation') {
-        const cost = 5 - synergies[slot].costReduction;
+        const cost = stats[slot].cost - synergies[slot].costReduction;
         if (state.energy < cost) { note(state, slot, 'idle', '에너지 부족: ' + cost + ' 필요'); return; }
         activate(id, slot); state.energy -= cost;
         state.attack = Math.min(MAX_ATTACK, state.attack + stats[slot].attack + bonus(state, 'mutation', slot));
-      } else if (id === 'bomb' && state.units > 0) {
+      } else if (id === 'bomb' && state.units >= stats[slot].used) {
         activate(id, slot);
-        const used = Math.min(2, state.units);
-        state.units -= used;
-        damage(Math.round(stats[slot].damage * used * (state.enemyId === 'armor' ? 0.4 : 1) * (bonus(state, 'bomb', slot) || 1) * (bonus(state, 'attack', slot) || 1) * synergies[slot].damageMultiplier), id, slot);
-        enqueue('bomb', used, id, slot);
+        // The blast grows with army attack.
+        state.units -= stats[slot].used;
+        damage(Math.round((stats[slot].damage + stats[slot].perAttack * state.attack) * (state.enemyId === 'armor' ? 0.4 : 1) * (bonus(state, 'bomb', slot) || 1) * (bonus(state, 'attack', slot) || 1) * synergies[slot].damageMultiplier), id, slot);
+        enqueue('bomb', stats[slot].used, id, slot);
       }
     }
 

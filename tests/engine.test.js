@@ -184,7 +184,7 @@ test('event count counts each processed event once across multiple flushes', () 
 test('echo repeats the preceding active machine without recursively repeating echoes', () => {
   const E = engine(); const s = battle(['mine', 'echo', 'boost'], { units: 0, energy: 0 });
   E.tick(s);
-  assert.equal(s.metrics.mine.activations, 3); assert.equal(s.energy, 18);
+  assert.equal(s.metrics.mine.activations, 4); assert.equal(s.energy, 16);
   assert.equal(s.metrics.echo.activations, 1); assert.equal(s.metrics.boost.activations, 1);
 });
 
@@ -192,9 +192,66 @@ test('kill rewards trigger exactly once and do not farm energy from post-kill ze
   const E = engine(); const s = battle(['bomb', 'onkill', 'autoclone', 'onclone', 'recycle'], { energy: 0, units: 3 });
   s.hp = 1; E.tick(s);
   assert.equal(s.report.win, true);
-  assert.equal(s.metrics.onkill.activations, 1); assert.equal(s.metrics.onkill.energy, 8);
+  assert.equal(s.metrics.onkill.activations, 1); assert.equal(s.metrics.onkill.energy, 10);
   assert.equal(s.metrics.autoclone.clones, 2); assert.equal(s.metrics.onclone.activations, 0);
   assert.equal(s.metrics.recycle.activations, 1);
+});
+
+test('kill triggers also fire once when a hit first takes the core to half HP or below', () => {
+  const E = engine(); const s = battle(['onkill', 'autoclone', 'onclone'], { energy: 0, units: 1, attack: 2 });
+  const half = s.maxHp / 2;
+  s.hp = half + 1; E.tick(s);
+  assert.equal(s.phase, 'battle');
+  assert.equal(s.metrics.onkill.activations, 1); assert.equal(s.metrics.onkill.energy, 10);
+  assert.equal(s.metrics.autoclone.activations, 1); assert.equal(s.metrics.autoclone.clones, 2);
+  // The core is still alive, so the new clones trigger a clone reaction.
+  assert.equal(s.metrics.onclone.activations, 1); assert.equal(s.metrics.onclone.damage, 4);
+  E.tick(s);
+  assert.equal(s.metrics.onkill.activations, 1, 'further hits below half do not re-fire');
+  s.hp = 1; E.tick(s);
+  assert.equal(s.report.win, true);
+  assert.equal(s.metrics.onkill.activations, 2, 'the kill still fires'); assert.equal(s.metrics.onkill.energy, 20);
+});
+
+test('the half-HP trigger needs a hit that crosses half, not a shield block or a start below half', () => {
+  const E = engine();
+  const shielded = battle(['onkill'], { energy: 0, units: 1, attack: 2 });
+  shielded.hp = shielded.maxHp / 2 + 1; shielded.shield = 100; E.tick(shielded);
+  assert.equal(shielded.metrics.onkill.activations, 0);
+  const below = battle(['onkill'], { energy: 0, units: 1, attack: 2 });
+  below.hp = below.maxHp / 2; E.tick(below);
+  assert.equal(below.metrics.onkill.activations, 0);
+  const exact = battle(['onkill'], { energy: 0, units: 1, attack: 2 });
+  exact.hp = exact.maxHp / 2 + 2; E.tick(exact);
+  assert.equal(exact.hp, exact.maxHp / 2); assert.equal(exact.metrics.onkill.activations, 1);
+});
+
+test('kill trigger descriptions mention the half-HP trigger', () => {
+  const E = engine();
+  for (const id of ['onkill', 'autoclone']) assert.match(E.MODULES[id].description, /절반/, id);
+});
+
+test('a bomb consumes one clone and its damage grows with army attack', () => {
+  const E = engine();
+  for (const [attack, expected] of [[2, 22], [3, 24], [10, 38]]) {
+    const s = battle(['bomb'], { units: 3, attack, energy: 0 });
+    E.tick(s);
+    assert.equal(s.metrics.bomb.damage, expected, 'attack ' + attack);
+    assert.equal(s.metrics.bomb.activations, 1);
+    assert.equal(s.metrics.basic.damage, 2 * attack, 'two of three clones survive the bomb');
+  }
+});
+
+test('module numbers follow the T4 balance table', () => {
+  const E = engine();
+  assert.deepEqual([1, 2, 3].map(level => E.getModuleStats('mine', level).energy), [2, 4, 6]);
+  assert.deepEqual([1, 2, 3].map(level => E.getModuleStats('soldier', level).clones), [2, 3, 4]);
+  assert.deepEqual([1, 2, 3].map(level => E.getModuleStats('mutation', level).attack), [1, 2, 3]);
+  assert.deepEqual([1, 2, 3].map(level => E.getModuleStats('bomb', level).damage), [18, 22, 26]);
+  assert.deepEqual([1, 2, 3].map(level => E.getModuleStats('onkill', level).energy), [10, 13, 16]);
+  assert.deepEqual([1, 2, 3].map(level => E.getModuleStats('echo', level).repeats), [3, 4, 5]);
+  const soldier = battle(['soldier'], { energy: 2, units: 0 });
+  E.tick(soldier); assert.equal(soldier.energy, 0); assert.equal(soldier.metrics.soldier.clones, 2);
 });
 
 test('a reaction resolved after the core dies is neither logged nor counted', () => {
@@ -232,9 +289,11 @@ test('rush limit produces explicit loss with a matching serializable report', ()
 });
 
 test('single run finishes all eight waves and stops at an explicit win', () => {
-  const E = engine(); const s = ready(); s.units = 1000; s.attack = 20;
+  const E = engine(); const s = ready();
   for (let wave = 1; wave <= 8; wave++) {
     if (wave > 1) { E.nextWave(s); E.chooseRoute(s, 0); E.installModule(s, s.offers[0]); }
+    // Carry-over halves the army, so the overwhelming army is restored before each wave.
+    s.units = 1000; s.attack = 20;
     assert.equal(s.wave, wave); E.startBattle(s);
     while (s.phase === 'battle') E.tick(s);
     assert.equal(s.report.win, true); assert.equal(E.validateRun(s), true, `wave ${wave}`);
@@ -287,22 +346,22 @@ test('validator rejects coerced ids and impossible battle damage and report acco
 
 test('jam, drain, armor and disrupt enemy traits each change their owned rule', () => {
   const E = engine();
-  const jam = battle(['clone', 'soldier'], { enemyId: 'jam', energy: 10, units: 0, wave: 4 });
-  E.tick(jam); assert.equal(jam.energy, 4); assert.equal(jam.metrics.clone.clones, 2); assert.equal(jam.metrics.soldier.clones, 0);
+  const jam = battle(['clone', 'soldier'], { enemyId: 'jam', energy: 9, units: 0, wave: 4 });
+  E.tick(jam); assert.equal(jam.energy, 3); assert.equal(jam.metrics.clone.clones, 2); assert.equal(jam.metrics.soldier.clones, 0);
   const drain = battle([], { enemyId: 'drain', energy: 2, units: 0 });
   E.tick(drain); assert.equal(drain.energy, 0);
   const armor = battle(['bomb'], { enemyId: 'armor', units: 2 });
-  E.tick(armor); assert.equal(armor.metrics.bomb.damage, 11);
+  E.tick(armor); assert.equal(armor.metrics.bomb.damage, 9);
   const disrupt = battle(['mine', 'echo'], { enemyId: 'disrupt', energy: 0, units: 0 });
-  E.tick(disrupt); assert.equal(disrupt.metrics.mine.activations, 2);
+  E.tick(disrupt); assert.equal(disrupt.metrics.mine.activations, 3);
 });
 
 test('mutation and bomb terrain bonuses apply only at the appropriate machines', () => {
   const E = engine();
   const mutation = battle(['mutation'], { sectorId: 'laboratory', energy: 5, units: 0 });
-  E.tick(mutation); assert.equal(mutation.attack, 6);
+  E.tick(mutation); assert.equal(mutation.attack, 5);
   const bomb = battle(['bomb'], { sectorId: 'canyon', units: 2, wave: 3 });
-  bomb.positions[0] = { x: 9, y: 0 }; E.tick(bomb); assert.equal(bomb.metrics.bomb.damage, 45);
+  bomb.positions[0] = { x: 9, y: 0 }; E.tick(bomb); assert.equal(bomb.metrics.bomb.damage, 35);
 });
 
 test('no recycling energy is earned without a damaging hit', () => {
@@ -327,7 +386,7 @@ test('resource production caps remain finite and valid at accepted save bounds',
 
 function playReferenceStrategy(seed, loadout) {
   const E = engine(); const s = E.createRun({ seed, loadout });
-  const scores = { mine: 4, clone: 7, soldier: 2, mutation: 9, echo: 6, boost: 3, bomb: 1, recycle: 6, onclone: 5, onkill: 0, autoclone: 0, revive: 1 };
+  const scores = { mine: 10, clone: 7, soldier: 6, mutation: 9, echo: 6, boost: 3, bomb: 1, recycle: 6, onclone: 5, onkill: 0, autoclone: 0, revive: 1 };
   let turns = 0;
   function valid() { assert.equal(E.validateRun(copy(s)), true, `${loadout}, seed ${seed}, wave ${s.wave}, phase ${s.phase}`); }
   while (s.phase === 'prepare') {

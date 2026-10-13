@@ -66,7 +66,7 @@ test('new player builds, relocates, starts, pauses and resumes the exact saved b
 for (const language of ['ko', 'en']) test('eight-wave campaign completes through real controls in ' + language, async ({ page }) => {
   await seed(page); await page.clock.install();
   await page.goto('/'); await page.locator('#language-select').selectOption(language); await page.locator('#resume-button').click();
-  const scores = { mine: 4, clone: 7, soldier: 2, mutation: 9, echo: 6, boost: 3, bomb: 1, recycle: 6, onclone: 5, onkill: 0, autoclone: 0, revive: 1 };
+  const scores = { mine: 10, clone: 7, soldier: 6, mutation: 9, echo: 6, boost: 3, bomb: 1, recycle: 6, onclone: 5, onkill: 0, autoclone: 0, revive: 1 };
   for (let wave = 1; wave <= 8; wave++) {
     let s = await state(page); expect(s.wave).toBe(wave);
     const route = s.routes[0].enemyId === 'swarm' || s.routes[0].objectiveId === 'rush' ? 1 : 0;

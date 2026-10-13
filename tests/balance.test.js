@@ -46,6 +46,18 @@ test('first-offer bot wins 20-45% overall and 10-60% per loadout, battles last 4
   assert.ok(result.aggregate.medianTurns >= 4 && result.aggregate.medianTurns <= 8, table);
 });
 
+test('no single module preference moves the first-offer win rate more than 15 points', () => {
+  const rate = options => sim.simulate({ policy: 'lazy', seedList: LAZY_SEEDS, ...options }).aggregate.winRate;
+  const baseline = rate({});
+  const rows = [];
+  for (const id of Object.keys(E.MODULES)) {
+    for (const [mode, value] of [['prefer', rate({ prefer: id })], ['avoid', rate({ avoid: id })]]) {
+      rows.push(id + ' ' + mode + ' ' + (100 * value).toFixed(1) + '% (' + (100 * (value - baseline)).toFixed(1) + ')');
+      assert.ok(Math.abs(value - baseline) <= 0.15, rows.at(-1) + ' vs baseline ' + (100 * baseline).toFixed(1) + '%\n' + rows.join('\n'));
+    }
+  }
+});
+
 test('lookahead bot wins at least 80% of runs', () => {
   const result = sim.simulate({ policy: 'lookahead', seedList: LOOKAHEAD_SEEDS });
   assert.ok(result.aggregate.winRate >= 0.80, sim.formatTable('[lookahead] seeds=' + LOOKAHEAD_SEEDS.length, result));
