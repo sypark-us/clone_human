@@ -176,7 +176,10 @@
     if (state.log.length > LOG_LIMIT) state.log.length = LOG_LIMIT;
   }
   function note(state, slot, kind, text) {
-    if (state.lastTurn.length < TURN_LOG_LIMIT) state.lastTurn.push({ slot, kind, text: text.slice(0, 500) });
+    if (state.lastTurn.length >= TURN_LOG_LIMIT) return null;
+    const entry = { slot, kind, text: text.slice(0, 500) };
+    state.lastTurn.push(entry);
+    return entry;
   }
   function gainEnergy(state, amount, source) {
     const gained = Math.min(amount, MAX_RESOURCE - state.energy);
@@ -431,8 +434,10 @@
     }
     function activate(id, slot, text) {
       state.metrics[id].activations++;
-      note(state, slot, id, text || MODULES[id].name);
+      return note(state, slot, id, text || MODULES[id].name);
     }
+    // What a machine produced rides in its note, so the map shows exactly what was applied.
+    const produced = (id, amount, suffix) => MODULES[id].name + ' +' + amount + suffix;
     function damage(amount, source, slot) {
       if (amount > 0 && state.hp > 0) enqueue('damage', amount, source, slot);
     }
@@ -451,8 +456,7 @@
           });
         } else if (event.kind === 'bomb') {
           forModule('revive', slot => {
-            activate('revive', slot, '자폭 병사 ' + stats[slot].clones + '명 재생');
-            gainUnits(state, stats[slot].clones, 'revive');
+            activate('revive', slot, '자폭 병사 ' + gainUnits(state, stats[slot].clones, 'revive') + '명 재생');
           });
         } else if (event.kind === 'damage' && state.hp > 0) {
           const absorbed = Math.min(state.shield, event.amount);
@@ -466,16 +470,15 @@
           note(state, event.slot, 'damage', '피해 ' + dealt + (absorbed ? ' · 방어막 ' + absorbed : ''));
           if (dealt + absorbed > 0) forModule('recycle', slot => {
             const amount = stats[slot].energy + bonus(state, 'recycle', slot);
-            activate('recycle', slot, '피해 회수: 에너지 +' + amount);
-            gainEnergy(state, amount, 'recycle');
+            activate('recycle', slot, '피해 회수: 에너지 +' + gainEnergy(state, amount, 'recycle'));
           });
           if (crossedHalf) enqueue('kill', 1, event.source, event.slot);
           if (state.hp === 0 && dealt > 0) enqueue('kill', 1, event.source, event.slot);
         } else if (event.kind === 'kill') {
-          forModule('onkill', slot => { activate('onkill', slot); gainEnergy(state, stats[slot].energy, 'onkill'); });
+          forModule('onkill', slot => { activate('onkill', slot, produced('onkill', gainEnergy(state, stats[slot].energy, 'onkill'), ' E')); });
           forModule('autoclone', slot => {
-            activate('autoclone', slot);
             const amount = gainUnits(state, stats[slot].clones, 'autoclone');
+            activate('autoclone', slot, produced('autoclone', amount, '명'));
             if (amount) enqueue('clone', amount, 'autoclone', slot);
           });
         }
@@ -487,25 +490,30 @@
         const previous = state.slots[slot - 1];
         const repeats = Math.max(0, stats[slot].repeats - (state.enemyId === 'disrupt' ? 1 : 0));
         if (!repeats) { note(state, slot, 'idle', '시간 교란: 반복 없음'); return; }
-        activate(id, slot);
+        const entry = activate(id, slot);
+        let ran = 0;
         if (ACTIVE.includes(previous)) {
-          for (let i = 0; i < repeats && state.hp > 0; i++) { act(previous, slot - 1); flush(); }
+          for (; ran < repeats && state.hp > 0; ran++) { act(previous, slot - 1); flush(); }
         }
+        if (entry) entry.text = MODULES[id].name + ' ×' + ran;
         return;
       }
       if (id === 'mine') {
-        activate(id, slot); gainEnergy(state, stats[slot].energy + bonus(state, 'mine', slot), id);
+        activate(id, slot, produced(id, gainEnergy(state, stats[slot].energy + bonus(state, 'mine', slot), id), ' E'));
       } else if (id === 'clone' || id === 'soldier') {
         const cost = stats[slot].cost + (state.enemyId === 'jam' ? 2 : 0) - synergies[slot].costReduction;
         if (state.energy < cost) { note(state, slot, 'idle', '에너지 부족: ' + cost + ' 필요'); return; }
-        activate(id, slot); state.energy -= cost;
+        state.energy -= cost;
         const amount = gainUnits(state, stats[slot].clones + (id === 'clone' ? bonus(state, 'clone', slot) : 0) + synergies[slot].clones, id);
+        activate(id, slot, produced(id, amount, '명'));
         if (amount) enqueue('clone', amount, id, slot);
       } else if (id === 'mutation') {
         const cost = stats[slot].cost - synergies[slot].costReduction;
         if (state.energy < cost) { note(state, slot, 'idle', '에너지 부족: ' + cost + ' 필요'); return; }
-        activate(id, slot); state.energy -= cost;
+        state.energy -= cost;
+        const attackBefore = state.attack;
         state.attack = Math.min(MAX_ATTACK, state.attack + stats[slot].attack + bonus(state, 'mutation', slot));
+        activate(id, slot, MODULES[id].name + ' 공격력 +' + (state.attack - attackBefore));
       } else if (id === 'bomb' && state.units >= stats[slot].used) {
         activate(id, slot);
         // The blast grows with army attack.

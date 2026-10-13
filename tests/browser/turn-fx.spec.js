@@ -1,12 +1,13 @@
 const { test, expect } = require('@playwright/test');
 const E = require('../../js/engine.js');
+const C = require('../../js/i18n-content.js');
 const KEY = 'clone-human:save';
 const savedRun = page => page.evaluate(key => JSON.parse(localStorage.getItem(key)).run, KEY);
 
-async function resume(page, run, viewport = { width: 1366, height: 768 }) {
+async function resume(page, run, viewport = { width: 1366, height: 768 }, language = 'ko') {
   await page.setViewportSize(viewport);
   await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-    key: KEY, value: JSON.stringify({ version: 1, run, settings: { music: false, sfx: false, speed: 1, tutorialSeen: true, language: 'ko' } })
+    key: KEY, value: JSON.stringify({ version: 1, run, settings: { music: false, sfx: false, speed: 1, tutorialSeen: true, language } })
   });
   await page.goto('/');
   await page.locator('#resume-button').click();
@@ -53,6 +54,35 @@ test('a battle turn plays its machine events on the map in engine order', async 
   await expect(page.locator('.map-float')).toHaveCount(0, { timeout: 4000 });
   await expect(page.locator('.map-token')).toHaveCount(0);
 });
+
+// AC-3: a machine's float shows what the engine applied this turn.
+function productionRun() {
+  const run = E.createRun({ seed: 7 });
+  E.chooseRoute(run, 0); E.installModule(run, run.offers[0]);
+  Object.assign(run, { wave: 3, energy: 40, units: 6, sectorId: 'laboratory', slots: ['mine', 'echo', 'clone', 'soldier', 'mutation', 'boost', 'mine', null] });
+  E.startBattle(run);
+  return run;
+}
+for (const language of ['ko', 'en']) {
+  test('each machine float carries the amount the engine applied (' + language + ')', async ({ page }) => {
+    const before = productionRun();
+    await resume(page, before, undefined, language);
+    const played = await stepAndRead(page);
+    const after = await savedRun(page);
+    const notes = after.lastTurn.filter(event => event.slot >= 0 && event.kind !== 'damage' && event.kind !== 'idle');
+    expect(notes.length).toBeGreaterThan(4);
+    const plain = played.floats.filter(item => item.slot >= 0 && item.kind !== 'damage' && item.kind !== 'idle');
+    expect(plain.map(item => item.text)).toEqual(notes.map(note => C.translate(note.text, language)));
+    const total = (items, kind) => items.filter(item => item.kind === kind).reduce((sum, item) => sum + Number(/\d+/.exec(item.text)[0]), 0);
+    expect(total(plain, 'mine')).toBe(after.metrics.mine.energy - before.metrics.mine.energy);
+    expect(total(plain, 'clone')).toBe(after.metrics.clone.clones - before.metrics.clone.clones);
+    expect(total(plain, 'soldier')).toBe(after.metrics.soldier.clones - before.metrics.soldier.clones);
+    expect(total(plain, 'mutation')).toBe(after.attack - before.attack);
+    expect(total(plain, 'mine')).toBeGreaterThan(0);
+    for (const item of plain) expect(item.text).toMatch(/\d/);
+    if (language === 'en') for (const item of plain) expect(item.text).not.toMatch(/[가-힣]/);
+  });
+}
 
 test('the battle ends in an on-map result banner; the report dialog opens only on request', async ({ page }) => {
   await resume(page, battleRun({ win: true }));

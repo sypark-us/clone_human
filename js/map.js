@@ -76,7 +76,9 @@
     }
     if (event.kind === 'idle') return { text: '! ' + t(event.text), tone: 'idle' };
     if (REACTIONS.includes(event.kind)) return { text: t(event.text), tone: 'reaction' };
-    return { text: '', tone: 'quiet' };
+    // Production floats the note text, which already carries the amount the engine applied;
+    // a bomb's number is its damage event, so its own float stays empty.
+    return event.kind === 'bomb' ? { text: '', tone: 'quiet' } : { text: t(event.text), tone: 'gain' };
   }
   function settle(node, animation) {
     animation.finished.then(() => node.remove(), () => node.remove());
