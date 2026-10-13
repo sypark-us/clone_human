@@ -31,29 +31,29 @@ test('purchase previews are read-only and upgrades charge once with strict prepa
 });
 
 test('stat queries expose intermediate levels without sharing mutable definitions', () => {
-  const mine = E.getModuleStats('mine', 2); assert.deepEqual(mine, { energy: 6 }); mine.energy = 999;
-  assert.deepEqual(E.getModuleStats('mine', 2), { energy: 6 });
+  const mine = E.getModuleStats('mine', 2); assert.deepEqual(mine, { energy: 4 }); mine.energy = 999;
+  assert.deepEqual(E.getModuleStats('mine', 2), { energy: 4 });
   for (const level of [0, 4, 1.5, '2']) assert.equal(E.getModuleStats('mine', level), null);
   assert.equal(E.getModuleStats('unknown', 1), null);
-  const s = upgraded(['mine'], 2); E.startBattle(s); E.tick(s); assert.equal(s.metrics.mine.energy, 6);
+  const s = upgraded(['mine'], 2); E.startBattle(s); E.tick(s); assert.equal(s.metrics.mine.energy, 4);
 });
 
 test('levels follow machines through ordering and map swaps, but replacements start at level one', () => {
   const s = upgraded(['mine', 'clone'], 2); s.energy = 100; E.upgradeMachine(s, 0);
   E.selectSlot(s, 0); E.moveSlot(s, 1); assert.deepEqual(s.machineLevels.slice(0, 2), [2, 3]); assert.equal(s.slots[1], 'mine');
-  const levels = [...s.machineLevels]; E.relocateSlot(s, 1, s.positions[0].x, s.positions[0].y); assert.deepEqual(s.machineLevels, levels);
-  s.needsReward = true; E.installModule(s, s.offers[0]); assert.equal(E.getMachineLevel(s, 1), 1);
+  E.relocateSlot(s, 1, s.positions[0].x, s.positions[0].y); assert.deepEqual(s.machineLevels.slice(0, 2), [3, 2]); assert.equal(s.slots[0], 'mine');
+  E.selectSlot(s, 1); s.needsReward = true; E.installModule(s, s.offers[0]); assert.equal(E.getMachineLevel(s, 1), 1);
   E.selectSlot(s, 7); s.needsReward = true; E.installModule(s, s.offers[0]); assert.equal(E.getMachineLevel(s, 7), 1);
 });
 
 test('each active and reactive machine applies its level-three effect to real combat', () => {
   const cases = [
-    ['mine', ['mine'], s => assert.equal(s.metrics.mine.energy, 8)],
+    ['mine', ['mine'], s => assert.equal(s.metrics.mine.energy, 6)],
     ['clone', ['clone'], s => assert.equal(s.metrics.clone.clones, 4)],
-    ['soldier', ['soldier'], s => assert.equal(s.metrics.soldier.clones, 3)],
-    ['mutation', ['mutation'], s => assert.equal(s.attack, 8)],
-    ['bomb', ['bomb'], s => assert.equal(s.metrics.bomb.damage, 44)],
-    ['echo', ['mine', 'echo'], s => assert.equal(s.metrics.mine.activations, 5)],
+    ['soldier', ['soldier'], s => assert.equal(s.metrics.soldier.clones, 4)],
+    ['mutation', ['mutation'], s => assert.equal(s.attack, 7)],
+    ['bomb', ['bomb'], s => assert.equal(s.metrics.bomb.damage, 30)],
+    ['echo', ['mine', 'echo'], s => assert.equal(s.metrics.mine.activations, 6)],
     ['boost', ['mine', 'boost'], s => assert.equal(s.metrics.mine.activations, 4)],
     ['recycle', ['soldier', 'recycle'], s => assert.equal(s.metrics.recycle.energy, 4)],
     ['onclone', ['clone', 'onclone'], s => assert.equal(s.metrics.onclone.damage, 12)],
@@ -64,8 +64,9 @@ test('each active and reactive machine applies its level-three effect to real co
     assert.equal(E.validateRun(s), true, id + ' upgraded combat must save');
   }
   for (const id of ['onkill', 'autoclone']) {
-    const s = upgraded([id], 3); s.units = 30; E.startBattle(s); E.tick(s);
-    assert.equal(s.phase, 'report'); assert.equal(s.metrics[id][id === 'onkill' ? 'energy' : 'clones'], id === 'onkill' ? 16 : 4);
+    const s = upgraded([id], 3); s.units = 100; E.startBattle(s); E.tick(s);
+    // One hit from full HP both crosses half and kills, so the trigger fires twice.
+    assert.equal(s.phase, 'report'); assert.equal(s.metrics[id][id === 'onkill' ? 'energy' : 'clones'], id === 'onkill' ? 32 : 8);
     assert.equal(E.validateRun(s), true, id);
   }
 });
@@ -77,9 +78,9 @@ test('upgrades stack with terrain, connectors and enemy rules without losing lin
   E.disconnectSlots(s, 0, 1); assert.equal(s.connectors.length, 1); assert.equal(s.version, 3); E.connectSlots(s, 0, 1);
   assert.equal(s.connectors.length, 2);
   s.positions[1] = { x: 5, y: 2 }; s.energy = 100; s.wave = 8; s.enemyId = 'jam'; E.startBattle(s); E.tick(s);
-  assert.equal(s.metrics.clone.clones, 6); assert.equal(s.energy, 98); assert.equal(E.validateRun(s), true);
+  assert.equal(s.metrics.clone.clones, 6); assert.equal(s.energy, 96); assert.equal(E.validateRun(s), true);
   const disrupted = upgraded(['mine', 'echo'], 3); disrupted.enemyId = 'disrupt'; E.startBattle(disrupted); E.tick(disrupted);
-  assert.equal(disrupted.metrics.mine.activations, 4);
+  assert.equal(disrupted.metrics.mine.activations, 5);
 });
 
 test('v1/v2 saves keep original effects, migrate on purchase, and v3 roundtrips reject malformed levels', () => {

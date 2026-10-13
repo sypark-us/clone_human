@@ -1,0 +1,95 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const E = require('../js/engine.js');
+const sim = require('../tools/balance-sim.js');
+
+// The first-offer bot is cheap, so it uses the same 300 seeds as the CLI;
+// the lookahead bot uses a smaller deterministic set so npm test stays fast.
+const LAZY_SEEDS = sim.seedList(300);
+const LOOKAHEAD_SEEDS = sim.seedList(20);
+
+// A won wave-1 report whose army ended the battle with the given clones and attack.
+function wonReport(loadout, units, attack) {
+  const s = E.createRun({ seed: 9, loadout });
+  E.chooseRoute(s, 0); E.installModule(s, s.offers[0]); E.startBattle(s);
+  s.units = 100;
+  while (s.phase === 'battle') E.tick(s);
+  assert.equal(s.phase, 'report');
+  return Object.assign(s, { units, attack });
+}
+
+test('next wave keeps half of the clones plus reinforcements', () => {
+  for (const [units, kept] of [[0, 0], [1, 1], [7, 4], [10, 5]]) {
+    const s = wonReport('balanced', units, 2);
+    E.nextWave(s);
+    assert.equal(s.units, kept + 3, units + ' clones');
+  }
+});
+
+test('next wave keeps half of the attack gained above the loadout base', () => {
+  for (const [loadout, base] of [['balanced', 2], ['mutation', 3]]) {
+    for (const [attack, kept] of [[base, base], [base + 1, base], [base + 5, base + 2], [base + 8, base + 4]]) {
+      const s = wonReport(loadout, 1, attack);
+      E.nextWave(s);
+      assert.equal(s.attack, kept, loadout + ' attack ' + attack);
+      assert.equal(E.validateRun(s), true);
+    }
+  }
+});
+
+test('first-offer bot wins 20-45% overall and 10-60% per loadout, battles last 4-8 turns', () => {
+  const result = sim.simulate({ policy: 'lazy', seedList: LAZY_SEEDS });
+  const table = sim.formatTable('[lazy] seeds=' + LAZY_SEEDS.length, result);
+  assert.ok(result.aggregate.winRate >= 0.20 && result.aggregate.winRate <= 0.45, table);
+  for (const [id, row] of Object.entries(result.perLoadout)) assert.ok(row.winRate >= 0.10 && row.winRate <= 0.60, id + '\n' + table);
+  assert.ok(result.aggregate.medianTurns >= 4 && result.aggregate.medianTurns <= 8, table);
+});
+
+test('no single module preference moves the first-offer win rate more than 15 points', () => {
+  const rate = options => sim.simulate({ policy: 'lazy', seedList: LAZY_SEEDS, ...options }).aggregate.winRate;
+  const baseline = rate({});
+  const rows = [];
+  for (const id of Object.keys(E.MODULES)) {
+    for (const [mode, value] of [['prefer', rate({ prefer: id })], ['avoid', rate({ avoid: id })]]) {
+      rows.push(id + ' ' + mode + ' ' + (100 * value).toFixed(1) + '% (' + (100 * (value - baseline)).toFixed(1) + ')');
+      assert.ok(Math.abs(value - baseline) <= 0.15, rows.at(-1) + ' vs baseline ' + (100 * baseline).toFixed(1) + '%\n' + rows.join('\n'));
+    }
+  }
+});
+
+test('lookahead bot wins at least 80% of runs', () => {
+  const result = sim.simulate({ policy: 'lookahead', seedList: LOOKAHEAD_SEEDS });
+  assert.ok(result.aggregate.winRate >= 0.80, sim.formatTable('[lookahead] seeds=' + LOOKAHEAD_SEEDS.length, result));
+});
+
+// AC-8 route band. Forced = take the route with that objective whenever it is
+// offered. The lookahead half uses 10 seeds (60 runs, ~480 route choices) to
+// keep npm test fast; the CLI equivalent is --route <id> at 300 seeds.
+test('no route objective dominates: forced routes stay within 10 points and the lookahead bot picks each at least 15% of the time', () => {
+  const objectives = Object.keys(E.OBJECTIVES);
+  for (const [policy, seedList] of [['lazy', LAZY_SEEDS], ['lookahead', sim.seedList(10)]]) {
+    const rates = Object.fromEntries(objectives.map(route => [route, sim.simulate({ policy, seedList, route }).aggregate.winRate]));
+    const rows = objectives.map(id => id + ' ' + (100 * rates[id]).toFixed(1) + '%').join(', ');
+    const best = Math.max(...Object.values(rates));
+    for (const id of objectives) assert.ok(best - rates[id] <= 0.10, policy + ' forced ' + id + ': ' + rows);
+    if (policy !== 'lookahead') continue;
+    const picks = sim.simulate({ policy, seedList }).aggregate.picks;
+    const shares = objectives.map(id => id + ' ' + (100 * picks[id]).toFixed(1) + '%').join(', ');
+    for (const id of objectives) assert.ok(picks[id] >= 0.15, 'lookahead picks ' + shares);
+  }
+});
+
+test('saves made under the previous enemy HP table still validate', () => {
+  const legacy = [35, 90, 180, 330, 560, 900, 1400, 2150];
+  const prepare = E.createRun({ seed: 4 });
+  Object.assign(prepare, { hp: legacy[0], maxHp: legacy[0] });
+  assert.equal(E.validateRun(prepare), true, 'prepare phase');
+  const battle = E.createRun({ seed: 4 });
+  E.chooseRoute(battle, 0); E.installModule(battle, battle.offers[0]); E.startBattle(battle);
+  Object.assign(battle, { hp: legacy[0], maxHp: legacy[0] });
+  E.tick(battle);
+  assert.equal(E.validateRun(battle), true, 'battle phase');
+  E.chooseRoute(prepare, 0);
+  assert.equal(prepare.maxHp, E.getBattlePreview(prepare).maxHp, 'the next reset adopts the current table');
+});

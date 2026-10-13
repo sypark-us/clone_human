@@ -18,7 +18,7 @@ test('hovering Miner explains its base effect and applicable terrain below the i
   const miner = cell(page, { x: 1, y: 2 });
   await miner.hover();
   const tip = page.getByRole('tooltip'); await expect(tip).toBeVisible();
-  await expect(tip).toContainText('Miner'); await expect(tip).toContainText('+4 energy / turn');
+  await expect(tip).toContainText('Miner'); await expect(tip).toContainText('+2 energy / turn');
   await expect(tip).toContainText('Mining +2');
   await expect(miner).toHaveAttribute('aria-describedby', 'machine-tooltip');
   const icon = await miner.boundingBox(), popup = await tip.boundingBox();
@@ -33,10 +33,10 @@ test('keyboard focus and production rack show translated descriptions; Escape di
   await resume(page);
   const rack = page.locator('[data-slot="0"]'); await rack.focus();
   const tip = page.getByRole('tooltip'); await expect(tip).toBeVisible();
-  await expect(tip).toContainText('+4 energy / turn');
+  await expect(tip).toContainText('+2 energy / turn');
   await page.keyboard.press('Escape'); await expect(tip).toBeHidden();
   await page.locator('#language-select').selectOption('ko');
-  await rack.hover(); await expect(tip).toContainText('채굴기'); await expect(tip).toContainText('에너지 +4');
+  await rack.hover(); await expect(tip).toContainText('채굴기'); await expect(tip).toContainText('에너지 +2');
   await page.locator('#language-select').selectOption('en'); await rack.hover();
   await expect(tip).not.toContainText(/[\uac00-\ud7a3]/);
 });
@@ -60,7 +60,7 @@ test('touch reveals the same information without widening the phone page', async
   try {
     await resume(page); await cell(page, { x: 1, y: 2 }).tap();
     const tip = page.getByRole('tooltip'); await expect(tip).toBeVisible();
-    await expect(tip).toContainText('+4 energy / turn');
+    await expect(tip).toContainText('+2 energy / turn');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.locator('.footer').scrollIntoViewIfNeeded(); await expect(tip).toBeHidden();
   } finally { await context.close(); }
@@ -75,4 +75,19 @@ test('edge tooltips fit the viewport and report real connection bonuses', async 
   const rect = await tip.boundingBox();
   expect(rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= 1280 && rect.y + rect.height <= 720).toBe(true);
   await page.locator('#help-button').click(); await expect(tip).toBeHidden();
+});
+
+test('every machine summary takes all of its numbers from the engine stats at each level', async ({ page }) => {
+  await resume(page);
+  const labels = await page.evaluate(() => Object.keys(CloneHumanEngine.MODULES).flatMap(id => [1, 2, 3].map(level => ({
+    id, level, text: CloneHumanMap.summary(id, level), stats: Object.values(CloneHumanEngine.getModuleStats(id, level)).map(String)
+  }))));
+  for (const { id, level, text, stats } of labels) {
+    for (const number of text.match(/\d+(?:\.\d+)?/g) || []) expect(stats, id + ' Lv.' + level + ': ' + text).toContain(number);
+  }
+  const at = (id, level = 1) => labels.find(label => label.id === id && label.level === level).text;
+  expect(at('soldier')).toBe('2 E → 2 clones');
+  expect(at('bomb')).toBe('1 clone → 18 + attack × 2 damage');
+  expect(at('onkill')).toContain('half');
+  expect(at('autoclone')).toContain('half');
 });

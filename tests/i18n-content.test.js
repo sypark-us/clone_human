@@ -89,6 +89,7 @@ test('each engine log and note template translates complete messages and preserv
     ['코어 격파! 에너지 +14 · 모든 구역 해방.', 'Core destroyed! +14 energy · All sectors liberated.'],
     ['제한 시간 초과. 공장 설계를 바꾸어 다시 도전하세요.', 'Turn limit reached. Redesign your factory and try again.'],
     ['복제 반응 공격', 'Clone reaction attack'],
+    ['시간 교란: 반복 없음', 'Time disruption: no repeat'],
     ['자폭 병사 1명 재생', 'Regenerated 1 clone after demolition'],
     ['피해 0 · 방어막 32', 'Damage 0 · Shield damage 32'],
     ['피해 2150', 'Damage 2150'],

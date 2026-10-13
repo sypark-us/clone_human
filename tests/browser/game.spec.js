@@ -66,7 +66,7 @@ test('new player builds, relocates, starts, pauses and resumes the exact saved b
 for (const language of ['ko', 'en']) test('eight-wave campaign completes through real controls in ' + language, async ({ page }) => {
   await seed(page); await page.clock.install();
   await page.goto('/'); await page.locator('#language-select').selectOption(language); await page.locator('#resume-button').click();
-  const scores = { mine: 4, clone: 7, soldier: 2, mutation: 9, echo: 6, boost: 3, bomb: 1, recycle: 6, onclone: 5, onkill: 0, autoclone: 0, revive: 1 };
+  const scores = { mine: 10, clone: 7, soldier: 6, mutation: 9, echo: 6, boost: 3, bomb: 1, recycle: 6, onclone: 5, onkill: 0, autoclone: 0, revive: 1 };
   for (let wave = 1; wave <= 8; wave++) {
     let s = await state(page); expect(s.wave).toBe(wave);
     const route = s.routes[0].enemyId === 'swarm' || s.routes[0].objectiveId === 'rush' ? 1 : 0;
@@ -84,19 +84,18 @@ for (const language of ['ko', 'en']) test('eight-wave campaign completes through
     for (const id of ['fort', 'training', 'power']) {
       const desired = { power: 1, training: 2, fort: 3 };
       s = await state(page);
-      while (s.energy >= 20 && s.upgrades[id] < desired[id]) {
+      while (s.energy >= E.getUpgradeCost(s, id) + 8 && s.upgrades[id] < desired[id]) {
         await page.locator(`[data-upgrade="${id}"]`).click(); s = await state(page);
       }
     }
     await page.locator('#primary-button').click();
-    for (let turn = 0; turn < 12 && (await state(page)).phase === 'battle'; turn++) await page.clock.runFor(1100);
+    for (let turn = 0; turn < 12 && (await state(page)).phase === 'battle'; turn++) await page.clock.runFor(1800);
     s = await state(page); expect(s.report.win).toBe(true);
     await expect(page.locator('#report-reason')).not.toContainText('core-destroyed');
-    await expect(page.locator('#report-section')).toBeVisible();
-    if (wave < 8) {
-      const next = page.locator('#layout-report-continue');
-      await (await next.isVisible() ? next : page.locator('#primary-button')).click();
-    }
+    // The battle ends on the map banner once the final turn has played.
+    await page.clock.runFor(1800);
+    await expect(page.locator('.map-result')).toBeVisible();
+    if (wave < 8) await page.locator('#map-result-action').click();
   }
   expect((await state(page)).phase).toBe('won');
   await expect(page.locator('#report-title')).toHaveText(language === 'ko' ? '공장이 미래를 만들었습니다.' : 'Your factory built the future.');

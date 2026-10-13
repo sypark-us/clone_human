@@ -75,18 +75,20 @@
     return saveResult.ok;
   }
   function stopTimer() { if (timer !== null) clearInterval(timer); timer = null; }
+  const turnInterval = () => 1800 / settings.speed;
   function schedule() {
     stopTimer();
     if (!run || run.phase !== 'battle' || paused || welcomeVisible || document.hidden) return;
-    timer = setInterval(advanceTurn, 1100 / settings.speed);
+    timer = setInterval(advanceTurn, turnInterval());
   }
   function advanceTurn() {
     if (!run || run.phase !== 'battle') { stopTimer(); return; }
     E.tick(run);
+    // Start the timeline before rendering so the result banner waits for it.
+    map.playTurn(run.lastTurn, turnInterval());
     audio.play(run.phase === 'lost' ? 'lose' : ['report', 'won'].includes(run.phase) ? 'win' : 'turn');
     if (run.phase !== 'battle') { stopTimer(); paused = true; }
     save(); render();
-    if (run.phase !== 'battle' && !window.CloneHumanLayout?.isDesktop()) $('report-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
   function act(action, sound = 'click') {
     if (!run) return;
@@ -236,9 +238,9 @@
   }
   function renderUpgrades() {
     $('upgrades').innerHTML = E.UPGRADES.map(upgrade => {
-      const level = run.upgrades[upgrade.id];
-      const disabled = run.phase !== 'prepare' || run.energy < upgrade.cost || level >= upgrade.maxLevel;
-      return '<button class="upgrade" data-upgrade="' + upgrade.id + '" ' + (disabled ? 'disabled' : '') + '><span><strong>' + escape(t(upgrade.name)) + '<span class="upgrade-level">Lv.' + level + '/' + upgrade.maxLevel + '</span></strong><small>' + escape(t(upgradeSummaries[upgrade.id])) + '</small></span><span class="upgrade-price">' + (level >= upgrade.maxLevel ? escape(t('최대 단계')) : upgrade.cost + ' E') + '</span></button>';
+      const level = run.upgrades[upgrade.id], cost = E.getUpgradeCost(run, upgrade.id);
+      const disabled = run.phase !== 'prepare' || cost === null || run.energy < cost;
+      return '<button class="upgrade" data-upgrade="' + upgrade.id + '" ' + (disabled ? 'disabled' : '') + '><span><strong>' + escape(t(upgrade.name)) + '<span class="upgrade-level">Lv.' + level + '/' + upgrade.maxLevel + '</span></strong><small>' + escape(t(upgradeSummaries[upgrade.id])) + '</small></span><span class="upgrade-price">' + (cost === null ? escape(t('최대 단계')) : cost + ' E') + '</span></button>';
     }).join('');
   }
   function renderBattle() { window.CloneHumanCombat.render(run, E.getBattlePreview(run), paused); }
@@ -266,13 +268,25 @@
       label = paused ? '전투 계속' : '전투 일시정지';
     } else if (run.phase === 'report') { title = '다음 구역으로'; detail = '새 설비를 확보하고 공장을 확장하세요.'; label = '다음 웨이브'; }
     else { title = run.phase === 'won' ? '8개 구역 돌파 완료' : '이번 도전 종료'; detail = '다른 설계로 새로운 공장을 시작하세요.'; label = '다시 설계'; }
-    $('command-title').textContent = t(title); $('command-detail').textContent = t(detail);
+    $('command-title').textContent = t(title);
+    // The forecast replays the whole battle on a copy, so it is recomputed on every prepare-phase render.
+    const forecast = run.phase === 'prepare' ? E.getForecast(run) : null;
+    let forecastNode = null;
+    if (forecast) {
+      forecastNode = document.createElement('b');
+      forecastNode.id = 'forecast';
+      forecastNode.className = 'forecast ' + (forecast.win ? 'forecast-win' : 'forecast-loss');
+      forecastNode.dataset.win = String(forecast.win); forecastNode.dataset.turns = String(forecast.turns); forecastNode.dataset.hpLeft = String(forecast.hpLeft);
+      forecastNode.textContent = forecast.win ? t('예상: {turns}턴에 코어 격파', { turns: forecast.turns }) : t('예상: 제한 턴 내 체력 {hp} 부족', { hp: forecast.hpLeft });
+    }
+    $('command-detail').replaceChildren(...[t(detail), forecastNode].filter(Boolean));
     $('primary-button').innerHTML = escape(t(label)) + '<span aria-hidden="true">' + (run.phase === 'battle' && !paused ? 'Ⅱ' : '→') + '</span>';
+    map.showResult(['report', 'won', 'lost'].includes(run.phase) && run.report ? { title: $('report-title').textContent, reward: $('report-reward').textContent, action: t(label), report: t('전투 결과'), win: run.report.win } : null);
     $('primary-button').disabled = run.phase === 'prepare' && !E.canStart(run);
     $('step-button').hidden = run.phase !== 'battle';
     $('step-button').disabled = !paused;
     $('build-status').textContent = t(run.phase === 'prepare' ? '우클릭: 설비 강화' : '관찰 모드');
-    $('map-instruction').textContent = t(connecting ? '빛나는 설비를 선택해 연결하세요. Esc로 취소합니다.' : moving ? '목적지를 선택하세요. 이미 설비가 있는 땅은 서로 위치를 바꿉니다.' : run.phase === 'prepare' ? '설비끼리 드래그해 위치 교환 · 클릭으로 선택' : '컨베이어 순서로 생산됩니다. 전투 중에는 배치가 잠깁니다.');
+    $('map-instruction').textContent = t(connecting ? '빛나는 설비를 선택해 연결하세요. Esc로 취소합니다.' : moving ? '목적지를 선택하세요. 이미 설비가 있는 땅은 서로 위치를 바꿉니다.' : run.phase === 'prepare' ? '설비를 어느 땅으로든 드래그 · 생산은 위에서 아래, 왼쪽에서 오른쪽 순서' : '컨베이어 순서로 생산됩니다. 전투 중에는 배치가 잠깁니다.');
   }
   function render() {
     const focusedSlot = document.activeElement?.dataset.slot;
@@ -314,6 +328,10 @@
     if (button.dataset.upgrade) { act(() => E.buyUpgrade(run, button.dataset.upgrade), 'place'); }
   });
   $('primary-button').addEventListener('click', primary);
+  $('map-result-action').addEventListener('click', () => { primary(); if (!$('game').hidden) $('primary-button').focus({ preventScroll: true }); });
+  $('map-result-report').addEventListener('click', event => {
+    if (!window.CloneHumanLayout?.openReport(event.currentTarget)) $('report-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
   $('step-button').addEventListener('click', () => { if (paused) advanceTurn(); });
   $('speed-select').addEventListener('change', event => { settings.speed = Number(event.target.value); save(); schedule(); });
   $('move-button').addEventListener('click', () => { if (run?.phase !== 'prepare') return; connecting = false; moving = !moving; render(); if (moving) { $('factory').scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('목적지를 클릭하세요. 방향키와 Enter로도 이동할 수 있습니다.'); } });

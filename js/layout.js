@@ -14,7 +14,6 @@
   let selectedTab = 'route';
   let previous = null;
   let current = null;
-  let reportShown = false;
 
   function element(tag, className, id) {
     const node = document.createElement(tag);
@@ -136,13 +135,15 @@
   }
   function fitMap() {
     if (!desktop || game.hidden || !map.firstElementChild) return;
-    const width = Math.floor(Math.min(map.clientWidth, map.clientHeight * 12 / 7));
+    // The label strip above and the yard below the 12:7 grid take fixed height.
+    const stage = map.querySelector('.map-stage'), grid = stage?.querySelector('.map-world');
+    const strips = stage && grid ? stage.querySelector('.map-zone-labels').offsetHeight + stage.querySelector('.map-yard').offsetHeight : 0;
+    const width = Math.floor(Math.min(map.clientWidth, (map.clientHeight - strips) * 12 / 7));
     if (width > 0) map.style.setProperty('--map-fit-width', width + 'px');
   }
   function syncMode() {
     const next = media.matches && !game.hidden;
     reportButton.hidden = !current || !['report', 'won', 'lost'].includes(current.phase);
-    if (game.hidden) reportShown = false;
     if (next === desktop) { fitMap(); return; }
     desktop = next;
     document.body.classList.toggle('desktop-game', desktop);
@@ -162,15 +163,14 @@
     }
     requestAnimationFrame(fitMap);
   }
-  function presentReport() {
-    if (!desktop || !current || !['report', 'won', 'lost'].includes(current.phase) || reportShown || document.querySelector('dialog[open]')) return;
-    // Store before opening: the pause event may synchronously rerender the app.
-    reportShown = true;
-    reportDialog.open($('primary-button'));
+  function openReport(origin) {
+    // The battle ends on the map banner; the full report opens only on request.
+    if (!desktop || !current || !['report', 'won', 'lost'].includes(current.phase)) return false;
+    reportDialog.open(origin);
+    return true;
   }
   function update(state) {
     current = state;
-    if (!['report', 'won', 'lost'].includes(state.phase)) reportShown = false;
     syncMode();
     translate();
     buildEmpty.hidden = state.phase === 'prepare' && state.needsReward;
@@ -179,13 +179,12 @@
       else if (previous?.routePending && !state.routePending && state.needsReward) selectTab('build');
       else if (previous?.needsReward && !state.needsReward) selectTab('machine');
       else if (previous && previous.selectedSlot !== state.selectedSlot && selectedTab !== 'build') selectTab('machine');
-      presentReport();
     }
     previous = { ...state };
   }
   new MutationObserver(syncMode).observe(game, { attributes: true, attributeFilter: ['hidden'] });
   new ResizeObserver(fitMap).observe(map);
-  media.addEventListener('change', () => { syncMode(); translate(); presentReport(); });
+  media.addEventListener('change', () => { syncMode(); translate(); });
   translate(); selectTab(selectedTab);
-  root.CloneHumanLayout = { update, isDesktop: () => desktop };
+  root.CloneHumanLayout = { update, openReport, isDesktop: () => desktop };
 })(window);

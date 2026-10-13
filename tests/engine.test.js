@@ -33,7 +33,7 @@ test('exports the documented browser and CommonJS API with all twelve module con
   vm.runInNewContext(fs.readFileSync(enginePath, 'utf8'), context);
   assert.equal(typeof context.CloneHumanEngine.createRun, 'function');
   assert.equal(Object.keys(E.MODULES).length, 12);
-  for (const method of ['createRun', 'selectSlot', 'installModule', 'moveSlot', 'relocateSlot', 'chooseRoute', 'reroll', 'buyUpgrade', 'startBattle', 'tick', 'nextWave', 'canStart', 'getBattlePreview', 'getHints', 'validateRun']) assert.equal(typeof E[method], 'function', method);
+  for (const method of ['createRun', 'selectSlot', 'installModule', 'moveSlot', 'relocateSlot', 'chooseRoute', 'reroll', 'buyUpgrade', 'getUpgradeCost', 'startBattle', 'tick', 'nextWave', 'canStart', 'getBattlePreview', 'getHints', 'validateRun']) assert.equal(typeof E[method], 'function', method);
   for (const module of Object.values(E.MODULES)) for (const key of ['id', 'name', 'description', 'kind']) assert.equal(typeof module[key], 'string');
   for (const loadout of E.LOADOUTS) for (const key of ['id', 'name', 'description', 'slots', 'energy', 'units', 'attack']) assert.ok(key in loadout);
 });
@@ -83,15 +83,27 @@ test('invalid actions do not spend resources, consume rewards or corrupt slot st
   assert.deepEqual(s, before);
 });
 
-test('relocation swaps occupied cells while production reorder keeps cell positions', () => {
+test('production numbers follow map reading order, so moving a machine renumbers plots', () => {
+  const E = engine(); const s = ready();
+  const sorted = list => list.every((p, i) => !i || list[i - 1].y < p.y || (list[i - 1].y === p.y && list[i - 1].x < p.x));
+  assert.equal(sorted(E.createRun({ seed: 1 }).positions), true);
+  const modules = [...s.slots];
+  E.selectSlot(s, 0); E.relocateSlot(s, 0, 6, 2);
+  assert.deepEqual(s.slots.slice(0, 3), [modules[1], modules[0], modules[2]]);
+  assert.deepEqual(s.positions[1], { x: 6, y: 2 }); assert.equal(s.selectedSlot, 1);
+  E.relocateSlot(s, 1, 11, 6);
+  assert.equal(s.slots[7], modules[0]); assert.deepEqual(s.positions[7], { x: 11, y: 6 }); assert.equal(s.selectedSlot, 7);
+  assert.equal(sorted(s.positions), true); assert.equal(s.positions.length, 8); assert.equal(E.validateRun(s), true);
+});
+
+test('relocating onto an occupied plot swaps machines and their production order; plots keep positions', () => {
   const E = engine(); const s = ready(); const positions = copy(s.positions); const modules = [...s.slots];
-  E.relocateSlot(s, 0, positions[1].x, positions[1].y);
-  assert.deepEqual(s.positions[0], positions[1]); assert.deepEqual(s.positions[1], positions[0]);
-  assert.deepEqual(s.slots, modules);
-  const relocated = copy(s.positions);
-  E.selectSlot(s, 0); E.moveSlot(s, 1);
-  assert.equal(s.slots[0], modules[1]); assert.equal(s.slots[1], modules[0]);
-  assert.deepEqual(s.positions, relocated); assert.equal(s.selectedSlot, 1);
+  E.selectSlot(s, 0); E.relocateSlot(s, 0, positions[1].x, positions[1].y);
+  assert.deepEqual(s.positions, positions);
+  assert.equal(s.slots[0], modules[1]); assert.equal(s.slots[1], modules[0]); assert.equal(s.selectedSlot, 1);
+  const relocated = copy(s.positions); E.selectSlot(s, 1); E.moveSlot(s, -1);
+  assert.deepEqual(s.slots.slice(0, 2), modules.slice(0, 2));
+  assert.deepEqual(s.positions, relocated); assert.equal(s.selectedSlot, 0);
   assert.equal(E.validateRun(s), true);
 });
 
@@ -107,13 +119,23 @@ test('generator grants exactly +2 energy per upgrade level each turn', () => {
   E.tick(s); assert.equal(s.energy, 14);
 });
 
-test('upgrades pay once, stop at their cap and refuse unaffordable purchases', () => {
+test('factory upgrades cost 12, 18 then 24 E per level, charge that cost, stop at their cap and refuse unaffordable purchases', () => {
   const E = engine(); const s = ready(); s.energy = 100;
-  const upgrade = E.UPGRADES.find(u => u.id === 'power');
-  for (let i = 0; i < upgrade.maxLevel + 2; i++) E.buyUpgrade(s, 'power');
-  assert.equal(s.upgrades.power, upgrade.maxLevel);
-  assert.equal(s.energy, 100 - upgrade.cost * upgrade.maxLevel);
-  s.energy = 0; E.buyUpgrade(s, 'training'); assert.equal(s.upgrades.training, 0);
+  for (const upgrade of E.UPGRADES) assert.equal(E.getUpgradeCost(s, upgrade.id), 12, upgrade.id + ' first level');
+  for (const [level, cost] of [[0, 12], [1, 18], [2, 24]]) {
+    assert.equal(s.upgrades.power, level);
+    assert.equal(E.getUpgradeCost(s, 'power'), cost);
+    const before = s.energy; E.buyUpgrade(s, 'power');
+    assert.equal(before - s.energy, cost, 'level ' + (level + 1) + ' charges its own cost');
+  }
+  assert.equal(E.getUpgradeCost(s, 'power'), null, 'no price at the cap');
+  E.buyUpgrade(s, 'power'); E.buyUpgrade(s, 'power');
+  assert.equal(s.upgrades.power, 3); assert.equal(s.energy, 100 - 54);
+  assert.equal(E.getUpgradeCost(s, '__proto__'), null); assert.equal(E.getUpgradeCost(s, 'unknown'), null);
+  s.energy = 11; E.buyUpgrade(s, 'training'); assert.equal(s.upgrades.training, 0); assert.equal(s.energy, 11);
+  s.upgrades.fort = 1; s.energy = 17; E.buyUpgrade(s, 'fort'); assert.equal(s.upgrades.fort, 1, 'level 2 needs 18 E');
+  s.energy = 18; E.buyUpgrade(s, 'fort'); assert.equal(s.upgrades.fort, 2); assert.equal(s.energy, 0);
+  assert.equal(E.validateRun(s), true);
 });
 
 test('mine and clone terrain bonuses follow the machine position', () => {
@@ -172,7 +194,7 @@ test('event count counts each processed event once across multiple flushes', () 
 test('echo repeats the preceding active machine without recursively repeating echoes', () => {
   const E = engine(); const s = battle(['mine', 'echo', 'boost'], { units: 0, energy: 0 });
   E.tick(s);
-  assert.equal(s.metrics.mine.activations, 3); assert.equal(s.energy, 18);
+  assert.equal(s.metrics.mine.activations, 4); assert.equal(s.energy, 16);
   assert.equal(s.metrics.echo.activations, 1); assert.equal(s.metrics.boost.activations, 1);
 });
 
@@ -180,9 +202,84 @@ test('kill rewards trigger exactly once and do not farm energy from post-kill ze
   const E = engine(); const s = battle(['bomb', 'onkill', 'autoclone', 'onclone', 'recycle'], { energy: 0, units: 3 });
   s.hp = 1; E.tick(s);
   assert.equal(s.report.win, true);
-  assert.equal(s.metrics.onkill.activations, 1); assert.equal(s.metrics.onkill.energy, 8);
-  assert.equal(s.metrics.autoclone.clones, 2); assert.equal(s.metrics.onclone.activations, 1);
+  assert.equal(s.metrics.onkill.activations, 1); assert.equal(s.metrics.onkill.energy, 10);
+  assert.equal(s.metrics.autoclone.clones, 2); assert.equal(s.metrics.onclone.activations, 0);
   assert.equal(s.metrics.recycle.activations, 1);
+});
+
+test('kill triggers also fire once when a hit first takes the core to half HP or below', () => {
+  const E = engine(); const s = battle(['onkill', 'autoclone', 'onclone'], { energy: 0, units: 1, attack: 2 });
+  const half = s.maxHp / 2;
+  s.hp = half + 1; E.tick(s);
+  assert.equal(s.phase, 'battle');
+  assert.equal(s.metrics.onkill.activations, 1); assert.equal(s.metrics.onkill.energy, 10);
+  assert.equal(s.metrics.autoclone.activations, 1); assert.equal(s.metrics.autoclone.clones, 2);
+  // The core is still alive, so the new clones trigger a clone reaction.
+  assert.equal(s.metrics.onclone.activations, 1); assert.equal(s.metrics.onclone.damage, 4);
+  E.tick(s);
+  assert.equal(s.metrics.onkill.activations, 1, 'further hits below half do not re-fire');
+  s.hp = 1; E.tick(s);
+  assert.equal(s.report.win, true);
+  assert.equal(s.metrics.onkill.activations, 2, 'the kill still fires'); assert.equal(s.metrics.onkill.energy, 20);
+});
+
+test('the half-HP trigger needs a hit that crosses half, not a shield block or a start below half', () => {
+  const E = engine();
+  const shielded = battle(['onkill'], { energy: 0, units: 1, attack: 2 });
+  shielded.hp = shielded.maxHp / 2 + 1; shielded.shield = 100; E.tick(shielded);
+  assert.equal(shielded.metrics.onkill.activations, 0);
+  const below = battle(['onkill'], { energy: 0, units: 1, attack: 2 });
+  below.hp = below.maxHp / 2; E.tick(below);
+  assert.equal(below.metrics.onkill.activations, 0);
+  const exact = battle(['onkill'], { energy: 0, units: 1, attack: 2 });
+  exact.hp = exact.maxHp / 2 + 2; E.tick(exact);
+  assert.equal(exact.hp, exact.maxHp / 2); assert.equal(exact.metrics.onkill.activations, 1);
+});
+
+test('kill trigger descriptions mention the half-HP trigger', () => {
+  const E = engine();
+  for (const id of ['onkill', 'autoclone']) assert.match(E.MODULES[id].description, /절반/, id);
+});
+
+test('a bomb consumes one clone and its damage grows with army attack', () => {
+  const E = engine();
+  for (const [attack, expected] of [[2, 22], [3, 24], [10, 38]]) {
+    const s = battle(['bomb'], { units: 3, attack, energy: 0 });
+    E.tick(s);
+    assert.equal(s.metrics.bomb.damage, expected, 'attack ' + attack);
+    assert.equal(s.metrics.bomb.activations, 1);
+    assert.equal(s.metrics.basic.damage, 2 * attack, 'two of three clones survive the bomb');
+  }
+});
+
+test('module numbers follow the T4 balance table', () => {
+  const E = engine();
+  assert.deepEqual([1, 2, 3].map(level => E.getModuleStats('mine', level).energy), [2, 4, 6]);
+  assert.deepEqual([1, 2, 3].map(level => E.getModuleStats('soldier', level).clones), [2, 3, 4]);
+  assert.deepEqual([1, 2, 3].map(level => E.getModuleStats('mutation', level).attack), [1, 2, 3]);
+  assert.deepEqual([1, 2, 3].map(level => E.getModuleStats('bomb', level).damage), [18, 22, 26]);
+  assert.deepEqual([1, 2, 3].map(level => E.getModuleStats('onkill', level).energy), [10, 13, 16]);
+  assert.deepEqual([1, 2, 3].map(level => E.getModuleStats('echo', level).repeats), [3, 4, 5]);
+  const soldier = battle(['soldier'], { energy: 2, units: 0 });
+  E.tick(soldier); assert.equal(soldier.energy, 0); assert.equal(soldier.metrics.soldier.clones, 2);
+});
+
+test('a reaction resolved after the core dies is neither logged nor counted', () => {
+  const E = engine(); const s = battle(['bomb', 'onkill', 'autoclone', 'onclone'], { energy: 0, units: 3 });
+  s.hp = 1; E.tick(s);
+  assert.equal(s.report.win, true);
+  assert.equal(s.metrics.autoclone.clones, 2); assert.equal(s.metrics.autoclone.activations, 1);
+  assert.equal(s.metrics.onclone.activations, 0);
+  assert.equal(s.lastTurn.some(event => event.text === '복제 반응 공격'), false);
+});
+
+test('a boost with zero effective repeats is jammed, not activated', () => {
+  const E = engine(); const s = battle(['mine', 'boost'], { enemyId: 'disrupt', energy: 0, units: 0 });
+  E.tick(s);
+  assert.equal(s.metrics.mine.activations, 1);
+  assert.equal(s.metrics.boost.activations, 0);
+  const jam = s.lastTurn.find(event => event.slot === 1 && event.text === '시간 교란: 반복 없음');
+  assert.ok(jam, 'idle note expected'); assert.equal(jam.kind, 'idle');
 });
 
 test('defense objective accepts an early kill and pays its described reward', () => {
@@ -191,6 +288,21 @@ test('defense objective accepts an early kill and pays its described reward', ()
   assert.equal(s.phase, 'report'); assert.equal(s.report.win, true); assert.equal(s.report.turns, 1);
   assert.ok(s.report.reward >= E.OBJECTIVES.survive.reward);
   assert.equal(s.energy - before, s.report.reward);
+});
+
+test('route objectives trade safety for pay: normal 12 turns +6, rush 8 turns +12, defense 12 turns +12 with two extra clone losses', () => {
+  const E = engine();
+  const table = Object.fromEntries(Object.values(E.OBJECTIVES).map(o => [o.id, [o.limit, o.reward]]));
+  assert.deepEqual(table, { normal: [12, 6], rush: [8, 12], survive: [12, 12] });
+  const preview = objectiveId => { const s = ready(); s.objectiveId = objectiveId; return E.getBattlePreview(s); };
+  assert.equal(preview('survive').attack - preview('normal').attack, 2);
+  assert.equal(preview('rush').attack, preview('normal').attack);
+  for (const objectiveId of Object.keys(E.OBJECTIVES)) {
+    const s = battle([], { objectiveId, units: 100 }); const before = s.energy;
+    E.tick(s);
+    assert.equal(s.report.reward, E.OBJECTIVES[objectiveId].reward + 11, objectiveId + ' one-turn kill');
+    assert.equal(s.energy - before, s.report.reward); assert.equal(E.validateRun(s), true);
+  }
 });
 
 test('rush limit produces explicit loss with a matching serializable report', () => {
@@ -202,9 +314,11 @@ test('rush limit produces explicit loss with a matching serializable report', ()
 });
 
 test('single run finishes all eight waves and stops at an explicit win', () => {
-  const E = engine(); const s = ready(); s.units = 1000; s.attack = 20;
+  const E = engine(); const s = ready();
   for (let wave = 1; wave <= 8; wave++) {
     if (wave > 1) { E.nextWave(s); E.chooseRoute(s, 0); E.installModule(s, s.offers[0]); }
+    // Carry-over halves the army, so the overwhelming army is restored before each wave.
+    s.units = 1000; s.attack = 20;
     assert.equal(s.wave, wave); E.startBattle(s);
     while (s.phase === 'battle') E.tick(s);
     assert.equal(s.report.win, true); assert.equal(E.validateRun(s), true, `wave ${wave}`);
@@ -257,22 +371,22 @@ test('validator rejects coerced ids and impossible battle damage and report acco
 
 test('jam, drain, armor and disrupt enemy traits each change their owned rule', () => {
   const E = engine();
-  const jam = battle(['clone', 'soldier'], { enemyId: 'jam', energy: 10, units: 0, wave: 4 });
-  E.tick(jam); assert.equal(jam.energy, 4); assert.equal(jam.metrics.clone.clones, 2); assert.equal(jam.metrics.soldier.clones, 0);
+  const jam = battle(['clone', 'soldier'], { enemyId: 'jam', energy: 9, units: 0, wave: 4 });
+  E.tick(jam); assert.equal(jam.energy, 3); assert.equal(jam.metrics.clone.clones, 2); assert.equal(jam.metrics.soldier.clones, 0);
   const drain = battle([], { enemyId: 'drain', energy: 2, units: 0 });
   E.tick(drain); assert.equal(drain.energy, 0);
   const armor = battle(['bomb'], { enemyId: 'armor', units: 2 });
-  E.tick(armor); assert.equal(armor.metrics.bomb.damage, 11);
+  E.tick(armor); assert.equal(armor.metrics.bomb.damage, 9);
   const disrupt = battle(['mine', 'echo'], { enemyId: 'disrupt', energy: 0, units: 0 });
-  E.tick(disrupt); assert.equal(disrupt.metrics.mine.activations, 2);
+  E.tick(disrupt); assert.equal(disrupt.metrics.mine.activations, 3);
 });
 
 test('mutation and bomb terrain bonuses apply only at the appropriate machines', () => {
   const E = engine();
   const mutation = battle(['mutation'], { sectorId: 'laboratory', energy: 5, units: 0 });
-  E.tick(mutation); assert.equal(mutation.attack, 6);
+  E.tick(mutation); assert.equal(mutation.attack, 5);
   const bomb = battle(['bomb'], { sectorId: 'canyon', units: 2, wave: 3 });
-  bomb.positions[0] = { x: 9, y: 0 }; E.tick(bomb); assert.equal(bomb.metrics.bomb.damage, 45);
+  bomb.positions[0] = { x: 9, y: 0 }; E.tick(bomb); assert.equal(bomb.metrics.bomb.damage, 35);
 });
 
 test('no recycling energy is earned without a damaging hit', () => {
@@ -286,7 +400,7 @@ test('reports stay immutable until nextWave and cannot pay rewards twice', () =>
   E.startBattle(s); E.tick(s); E.buyUpgrade(s, 'power'); E.reroll(s); E.selectSlot(s, 2); E.chooseRoute(s, 1);
   assert.deepEqual(s, before);
   E.nextWave(s); const advanced = copy(s); E.nextWave(s); assert.deepEqual(s, advanced);
-  assert.equal(s.energy, before.energy); assert.equal(s.units, before.units + 3); assert.equal(s.report, null);
+  assert.equal(s.energy, before.energy); assert.equal(s.units, Math.ceil(before.units / 2) + 3); assert.equal(s.report, null);
 });
 
 test('resource production caps remain finite and valid at accepted save bounds', () => {
@@ -297,7 +411,7 @@ test('resource production caps remain finite and valid at accepted save bounds',
 
 function playReferenceStrategy(seed, loadout) {
   const E = engine(); const s = E.createRun({ seed, loadout });
-  const scores = { mine: 4, clone: 7, soldier: 2, mutation: 9, echo: 6, boost: 3, bomb: 1, recycle: 6, onclone: 5, onkill: 0, autoclone: 0, revive: 1 };
+  const scores = { mine: 10, clone: 7, soldier: 6, mutation: 9, echo: 6, boost: 3, bomb: 1, recycle: 6, onclone: 5, onkill: 0, autoclone: 0, revive: 1 };
   let turns = 0;
   function valid() { assert.equal(E.validateRun(copy(s)), true, `${loadout}, seed ${seed}, wave ${s.wave}, phase ${s.phase}`); }
   while (s.phase === 'prepare') {
@@ -311,7 +425,7 @@ function playReferenceStrategy(seed, loadout) {
     }
     E.installModule(s, offer);
     const desired = { power: 1, training: 2, fort: 3 };
-    for (const id of ['fort', 'training', 'power']) while (s.energy >= 20 && s.upgrades[id] < desired[id]) E.buyUpgrade(s, id);
+    for (const id of ['fort', 'training', 'power']) while (s.energy >= E.getUpgradeCost(s, id) + 8 && s.upgrades[id] < desired[id]) E.buyUpgrade(s, id);
     valid(); E.startBattle(s); valid();
     while (s.phase === 'battle') { E.tick(s); turns++; valid(); }
     if (s.phase === 'report') { E.nextWave(s); valid(); }

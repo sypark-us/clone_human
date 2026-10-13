@@ -34,16 +34,52 @@
   function enemyArt() {
     return '<svg viewBox="0 0 140 125" aria-hidden="true"><ellipse cx="70" cy="114" rx="53" ry="8" fill="#0a1112"/><path d="m36 63-17 10-9 35h13l13-19m68-26 17 10 9 35h-13l-13-19" fill="#684e48" stroke="#b98268" stroke-width="2"/><path d="m70 8 37 21 9 49-25 31H49L24 78l9-49z" fill="#3d3936" stroke="#927f64" stroke-width="2"/><path d="m38 31 32-17 32 17-8 24H46z" fill="#6c6250"/><path d="M39 63h62l-8 26H47z" fill="#1a2425"/><path d="M45 43h50l-8 14H53z" fill="#ed946c"/><path d="M51 72h38" stroke="#e7a17e" stroke-width="4"/><path d="M55 98v12m30-12v12M70 20v13" stroke="#a89070" stroke-width="4"/></svg>';
   }
+  // The factory yard: one prop per factory upgrade, drawn in the machines' outline style.
+  const YARD = [
+    { id: 'power', color: '#e2c15a', art: '<rect class="body" x="7" y="13" width="30" height="15" rx="2"/><path class="body" d="M11 13V7h6v6M25 13V9h5v4"/><path class="mark" d="m23 15-5 6h4l-2 5 6-7h-4z"/><path class="mark" d="M37 21h6"/><path d="M3 29h42"/>' },
+    { id: 'training', color: '#7ed9b2', art: '<rect class="body" x="16" y="4" width="16" height="24" rx="6"/><path d="M16 10h16M16 22h16"/><circle class="mark" cx="22" cy="17" r="1.6"/><circle class="mark" cx="27" cy="20" r="1.2"/><circle class="mark" cx="26" cy="13.5" r="1"/><path d="M11 29h26"/>' },
+    { id: 'fort', color: '#9cc4dc', art: '<path class="body" d="M6 28V10h7v4h7v-4h7v4h7v-4h7v18z"/><path class="mark" d="M6 20h35M16 20v8M30 20v8M23 14v6"/>' }
+  ];
+  function yardProp(entry, maxLevel) {
+    const prop = document.createElement('div');
+    prop.className = 'yard-prop unbuilt'; prop.dataset.prop = entry.id;
+    prop.setAttribute('role', 'img');
+    prop.style.setProperty('--prop-color', entry.color);
+    const pips = Array.from({ length: maxLevel }, () => '<i class="yard-pip"></i>').join('');
+    prop.innerHTML = '<svg viewBox="0 0 48 32" aria-hidden="true">' + entry.art + '</svg><span class="yard-pips" aria-hidden="true">' + pips + '</span>';
+    return prop;
+  }
   const summaries = {
-    mine: ['에너지 +{amount} / 턴', 'energy'], clone: ['4 E → 복제인간 {amount}명', 'clones'], soldier: ['3 E → 복제인간 {amount}명', 'clones'],
-    mutation: ['5 E → 공격력 +{amount}', 'attack'], bomb: ['복제인간 2명 → 피해 {amount}', 'damage'],
+    mine: ['에너지 +{amount} / 턴', 'energy'], clone: ['{cost} E → 복제인간 {amount}명', 'clones'], soldier: ['{cost} E → 복제인간 {amount}명', 'clones'],
+    mutation: ['{cost} E → 공격력 +{amount}', 'attack'], bomb: ['복제인간 {used}명 → 피해 {amount} + 공격력 × {perAttack}', 'damage'],
     echo: ['앞 생산 설비 {amount}회 추가 실행', 'repeats'], boost: ['앞 생산 설비 {amount}회 추가 실행', 'repeats'],
     recycle: ['공격 적중 → +{amount} E', 'energy'], onclone: ['복제 → 추가 공격 ×{amount}', 'multiplier'],
-    onkill: ['코어 격파 → +{amount} E', 'energy'], autoclone: ['코어 격파 → 복제인간 +{amount}', 'clones'], revive: ['폭파 → 복제인간 {amount}명 복귀', 'clones']
+    onkill: ['코어 절반·격파 → +{amount} E', 'energy'], autoclone: ['코어 절반·격파 → 복제인간 +{amount}', 'clones'], revive: ['폭파 → 복제인간 {amount}명 복귀', 'clones']
   };
   function summary(id, level = 1) {
     const stats = root.CloneHumanEngine.getModuleStats(id, level), entry = summaries[id];
-    return entry && stats ? t(entry[0], { amount: stats[entry[1]] * (id === 'bomb' ? 2 : 1) }) : t('빈 슬롯에 새 설비를 설치하세요.');
+    return entry && stats ? t(entry[0], { ...stats, amount: stats[entry[1]] }) : t('빈 슬롯에 새 설비를 설치하세요.');
+  }
+  // A lane's own colour tints its band, edges it and tags the chips of machines it boosts.
+  const LANE_COLORS = { mine: '#e2c15a', clone: '#6fd8a8', attack: '#ea5f5f', defense: '#6fb2e0', bomb: '#f08a3c', mutation: '#b69af0', recycle: '#5fd0d0' };
+  const laneColor = lane => LANE_COLORS[lane?.kind] || '#c6ccae';
+  const laneChip = lane => (lane.kind === 'attack' || lane.kind === 'bomb' ? '×' : lane.kind === 'defense' ? '−' : '+') + lane.value;
+  const center = pos => ({ x: pos.x * 80 + 40, y: pos.y * 80 + 44 });
+  const round = value => Math.round(value * 10) / 10;
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const TOKEN_KINDS = ['mine', 'clone', 'soldier', 'mutation', 'bomb', 'echo', 'boost'];
+  const REACTIONS = ['recycle', 'onclone', 'onkill', 'autoclone', 'revive'];
+  function floatLabel(event) {
+    if (event.kind === 'damage') {
+      const match = /^피해 (\d+)(?: · 방어막 (\d+))?$/.exec(event.text);
+      return { text: match ? '-' + match[1] + (match[2] ? ' · ' + t('방어막 -{amount}', { amount: match[2] }) : '') : '', tone: 'damage' };
+    }
+    if (event.kind === 'idle') return { text: '! ' + t(event.text), tone: 'idle' };
+    if (REACTIONS.includes(event.kind)) return { text: t(event.text), tone: 'reaction' };
+    return { text: '', tone: 'quiet' };
+  }
+  function settle(node, animation) {
+    animation.finished.then(() => node.remove(), () => node.remove());
   }
   class FactoryMap {
     constructor(container, engine, onSelect, onMove, onConnect) {
@@ -55,11 +91,23 @@
       this.zoom = 1;
       this.moving = false;
       this.draggedSlot = null;
-      container.innerHTML = '<div class="map-world"><div class="map-terrain"></div><div class="zone-wash zone-a"></div><div class="zone-wash zone-b"></div><div class="zone-wash zone-c"></div><div class="map-grid"></div><svg class="map-belts" viewBox="0 0 960 560" aria-hidden="true"></svg><svg class="map-synergies" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-tiles" role="grid" aria-label="공장 지도. 방향키로 탐색하고 Enter로 선택합니다."></div><div class="map-zone-labels" aria-hidden="true"></div></div>';
+      container.innerHTML = '<div class="map-stage"><div class="map-zone-labels" aria-hidden="true"></div><div class="map-world"><div class="map-terrain"></div><div class="zone-wash zone-a"></div><div class="zone-wash zone-b"></div><div class="zone-wash zone-c"></div><div class="map-grid"></div><svg class="map-belts" viewBox="0 0 960 560" aria-hidden="true"></svg><svg class="map-synergies" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-tiles" role="grid" aria-label="공장 지도. 방향키로 탐색하고 Enter로 선택합니다."></div><svg class="map-fx" viewBox="0 0 960 560" aria-hidden="true"></svg><div class="map-floats" aria-hidden="true"></div><div class="map-result" hidden><strong class="map-result-title"></strong><span class="map-result-reward"></span><div class="map-result-actions"><button type="button" id="map-result-action" class="primary-button"></button><button type="button" id="map-result-report" class="secondary-button"></button></div></div></div><div class="map-yard" role="group"></div></div>';
+      this.stage = container.querySelector('.map-stage');
       this.world = container.querySelector('.map-world');
+      this.yard = container.querySelector('.map-yard');
       this.belts = container.querySelector('.map-belts');
       this.synergies = container.querySelector('.map-synergies');
       this.tiles = container.querySelector('.map-tiles');
+      // Turn effects live in their own layers: render() rebuilds belts and
+      // tiles, and must not cut an in-flight timeline short.
+      this.washes = [...container.querySelectorAll('.zone-wash')];
+      this.fx = container.querySelector('.map-fx');
+      this.floats = container.querySelector('.map-floats');
+      this.result = container.querySelector('.map-result');
+      this.fxUntil = 0;
+      // Props are built once: render() only updates them, so a pulse in flight is never cut short.
+      this.props = Object.fromEntries(YARD.map(entry => [entry.id, yardProp(entry, this.engine.UPGRADES.find(item => item.id === entry.id).maxLevel)]));
+      this.yard.append(...Object.values(this.props));
       for (let y = 0; y < 7; y++) {
         const row = document.createElement('div');
         row.className = 'map-row'; row.setAttribute('role', 'row');
@@ -72,7 +120,7 @@
           tile.addEventListener('keydown', event => this.key(event, x, y));
           tile.addEventListener('dragstart', event => this.startDrag(event, x, y));
           tile.addEventListener('dragover', event => {
-            if (this.dragTarget(x, y) < 0) return;
+            if (!this.canDrop(x, y)) return;
             event.preventDefault(); event.dataTransfer.dropEffect = 'move';
             tile.classList.add('drop-target');
           });
@@ -80,8 +128,8 @@
             if (!tile.contains(event.relatedTarget)) tile.classList.remove('drop-target');
           });
           tile.addEventListener('drop', event => {
-            const source = this.draggedSlot, target = this.dragTarget(x, y);
-            if (target < 0) return;
+            const source = this.draggedSlot;
+            if (!this.canDrop(x, y)) return;
             event.preventDefault(); this.clearDrag(); this.onMove(source, x, y);
           });
           tile.addEventListener('dragend', () => this.clearDrag());
@@ -89,6 +137,7 @@
         }
         this.tiles.append(row);
       }
+      this.tiles.addEventListener('dragover', event => this.previewDrag(event));
       this.buttons = [...this.tiles.querySelectorAll('button')];
       this.tooltip = document.createElement('div');
       this.tooltip.id = 'machine-tooltip'; this.tooltip.className = 'machine-tooltip';
@@ -141,10 +190,9 @@
       title.textContent = t(this.engine.MODULES[id].name);
       effect.textContent = t('기본: {effect}', { effect: summary(id, this.engine.getMachineLevel(this.state, slot)) });
       const lane = this.engine.SECTORS.find(s => s.id === this.state.sectorId).lanes[Math.floor(this.state.positions[slot].x / 4)];
-      const applies = { mine: ['mine'], clone: ['clone', 'attack', 'defense'], soldier: ['attack', 'defense'], mutation: ['mutation'], bomb: ['bomb', 'attack'], recycle: ['recycle'], onclone: ['attack'], revive: ['defense'] };
       const bonus = this.engine.getSynergyBonus(this.state, slot);
       const lines = [];
-      if (applies[id]?.includes(lane.kind)) lines.push(t(lane.name));
+      if (this.engine.terrainKinds(id).includes(lane.kind)) lines.push(t(lane.name));
       if (bonus.costReduction) lines.push(t('비용 -1 E'));
       if (bonus.clones) lines.push(t('복제인간 +1'));
       if (bonus.damageMultiplier > 1) lines.push(t('폭파 피해 +20%'));
@@ -173,10 +221,11 @@
     canDrag() {
       return this.state?.phase === 'prepare' && !this.moving && !this.connecting;
     }
-    dragTarget(x, y) {
-      if (this.draggedSlot === null || !this.canDrag()) return -1;
-      const target = this.state.positions.findIndex(position => position.x === x && position.y === y);
-      return target !== this.draggedSlot && this.state.slots[target] ? target : -1;
+    canDrop(x, y) {
+      // Any other tile: empty ground moves the machine, a plot swaps with it.
+      if (this.draggedSlot === null || !this.canDrag()) return false;
+      const source = this.state.positions[this.draggedSlot];
+      return source.x !== x || source.y !== y;
     }
     startDrag(event, x, y) {
       const source = this.state?.positions.findIndex(position => position.x === x && position.y === y);
@@ -186,16 +235,47 @@
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('application/x-clone-human-slot', String(source));
       this.world.classList.add('drag-mode');
+      this.updateZones();
       this.buttons.forEach(button => {
         const bx = Number(button.dataset.x), by = Number(button.dataset.y);
         button.classList.toggle('drag-source', bx === x && by === y);
-        button.classList.toggle('swap-target', this.dragTarget(bx, by) >= 0);
+        button.classList.toggle('swap-target', this.canDrop(bx, by) && this.state.positions.some(p => p.x === bx && p.y === by));
       });
     }
+    previewDrag(event) {
+      if (this.draggedSlot === null || !this.state) return;
+      const tile = event.target.closest?.('.map-tile');
+      const x = Number(tile?.dataset.x), y = Number(tile?.dataset.y);
+      const key = tile && this.canDrop(x, y) ? x + ',' + y : null;
+      if (key === this.previewKey) return;
+      this.previewKey = key;
+      if (key === null) { this.renderLinks(this.state); return; }
+      // Run the real move on a copy so the links show exactly what the drop saves.
+      const { slots, positions, machineLevels } = this.state;
+      const preview = { ...this.state, slots: [...slots], positions: [...positions], machineLevels: machineLevels && [...machineLevels] };
+      this.engine.relocateSlot(preview, this.draggedSlot, x, y);
+      this.renderLinks(preview);
+    }
     clearDrag() {
+      if (this.draggedSlot !== null && this.previewKey !== null && this.state) this.renderLinks(this.state);
+      this.previewKey = null;
       this.draggedSlot = null;
       this.world.classList.remove('drag-mode');
       this.buttons.forEach(button => button.classList.remove('drag-source', 'swap-target', 'drop-target'));
+      this.updateZones();
+    }
+    updateZones() {
+      // Bands light up for the machine being dragged, else the selected one, using the engine's own applicability.
+      const state = this.state;
+      if (!state) return;
+      const lanes = this.engine.SECTORS.find(item => item.id === state.sectorId)?.lanes || [];
+      const slot = this.draggedSlot ?? (state.phase === 'prepare' ? state.selectedSlot : -1);
+      const kinds = this.engine.terrainKinds(state.slots[slot]);
+      this.washes.forEach((wash, i) => {
+        const on = !!lanes[i] && kinds.includes(lanes[i].kind);
+        wash.classList.toggle('zone-hot', on);
+        this.labels?.[i]?.classList.toggle('zone-hot', on);
+      });
     }
     interact(x, y) {
       if (!this.state || this.state.phase !== 'prepare') return;
@@ -220,8 +300,8 @@
     }
     setZoom(value) {
       this.zoom = Math.max(1, Math.min(1.8, value));
-      this.world.style.width = (this.zoom * 100) + '%';
-      this.world.style.setProperty('--map-zoom', this.zoom);
+      this.stage.style.width = (this.zoom * 100) + '%';
+      this.stage.style.setProperty('--map-zoom', this.zoom);
       this.positionTooltip();
     }
     render(state, moving, paused, connecting = false) {
@@ -251,34 +331,154 @@
         button.draggable = !!kind && this.canDrag();
         button.setAttribute('aria-pressed', String(slot !== -1 && slot === state.selectedSlot));
         if (slot !== -1) {
-          button.innerHTML = '<span class="machine-number">' + (slot + 1) + '</span>' + (kind ? machine(kind) + '<span class="machine-level" aria-hidden="true">Lv.' + level + '</span>' : '<span class="empty-pad"><span>+</span></span>') + '<span class="machine-label">' + t(module?.name || '빈 설비') + '</span>';
+          button.innerHTML = '<span class="machine-number">' + (slot + 1) + '</span>' + (kind ? machine(kind) + '<span class="machine-level" aria-hidden="true">Lv.' + level + '</span>' : '<span class="empty-pad"><span>+</span></span>') + '<span class="machine-label">' + t(module?.name || '빈 설비') + '</span>' + (kind && zone && this.engine.terrainKinds(kind).includes(zone.kind) ? '<span class="terrain-chip" data-kind="' + zone.kind + '" style="--lane-color:' + laneColor(zone) + '" aria-hidden="true">' + laneChip(zone) + '</span>' : '');
         } else {
           const ore = ((x * 13 + y * 19) % 17 === 0 || (x < 3 && y === 5));
           button.innerHTML = ore ? '<span class="ore ore-' + Math.floor(x / 4) + '" aria-hidden="true"><i></i><i></i><i></i></span>' : '';
         }
       });
+      this.renderLinks(state, undefined, synergies);
+      const labels = this.container.querySelector('.map-zone-labels');
+      labels.replaceChildren();
+      (sector?.lanes || []).forEach((lane, i) => {
+        // The bonus after the name never truncates, so a narrow band still reads its value.
+        const label = document.createElement('span'), name = document.createElement('span'), effect = document.createElement('span');
+        const [head, ...rest] = t(lane.name).split(' · ');
+        name.textContent = ['A', 'B', 'C'][i] + ' / ' + head; effect.textContent = rest.length ? ' · ' + rest.join(' · ') : '';
+        label.title = name.textContent + effect.textContent;
+        label.append(name, effect);
+        label.style.setProperty('--lane-color', laneColor(lane));
+        labels.append(label);
+        const wash = this.washes[i], color = laneColor(lane);
+        wash.dataset.kind = lane.kind;
+        wash.style.setProperty('--lane-color', color);
+        wash.style.setProperty('--lane-wash', color + '1c');
+        wash.style.setProperty('--lane-hot', color + '4d');
+        wash.style.setProperty('--lane-edge', color + 'a6');
+      });
+      this.labels = [...labels.children];
+      this.renderYard(state);
+      this.updateZones();
+      this.refreshTooltip();
+    }
+    renderYard(state) {
+      this.yard.setAttribute('aria-label', t('공장 마당'));
+      for (const upgrade of this.engine.UPGRADES) {
+        const prop = this.props[upgrade.id], level = state.upgrades[upgrade.id];
+        prop.classList.toggle('unbuilt', !level);
+        prop.setAttribute('aria-label', t(upgrade.name) + ' Lv.' + level);
+        prop.querySelectorAll('.yard-pip').forEach((pip, i) => pip.classList.toggle('on', i < level));
+      }
+    }
+    pulseYard(events, durationMs) {
+      // Global effects act on the props. The engine notes the generator and the
+      // enemy's retaliation, but not the vat's clones: playTurn runs once per
+      // tick and the vat adds its clones every tick, so a built vat pulses every turn.
+      const up = this.state.upgrades, acts = [];
+      const energy = events.find(event => event.slot === -1 && event.kind === 'energy');
+      if (energy && up.power) acts.push({ id: 'power', delay: 0, text: '+' + (/\d+/.exec(energy.text)?.[0] ?? '') + ' E', event: energy });
+      if (up.training) acts.push({ id: 'training', delay: 0 });
+      const loss = events.find(event => event.slot === -1 && event.kind === 'loss');
+      if (loss && up.fort) acts.push({ id: 'fort', delay: durationMs * 0.7 });
+      for (const act of acts) {
+        const prop = this.props[act.id], color = YARD.find(entry => entry.id === act.id).color;
+        prop.animate([
+          { transform: 'scale(1)', filter: 'drop-shadow(0 0 0 ' + color + ')' },
+          { transform: 'scale(1.18)', filter: 'drop-shadow(0 0 7px ' + color + ')', offset: .35 },
+          { transform: 'scale(1)', filter: 'drop-shadow(0 0 0 ' + color + ')' }
+        ], { duration: 520, delay: act.delay, easing: 'ease-out' });
+        if (!act.event) continue;
+        const float = document.createElement('span');
+        float.className = 'yard-float'; float.textContent = act.text;
+        float.dataset.fxSlot = act.event.slot; float.dataset.fxKind = act.event.kind; float.dataset.fxProp = act.id;
+        float.style.setProperty('--fx-color', color);
+        prop.append(float);
+        settle(float, float.animate([
+          { opacity: 0, transform: 'translate(-50%, 0) scale(.8)' },
+          { opacity: 1, transform: 'translate(-50%, -10px) scale(1.05)', offset: .3 },
+          { opacity: 0, transform: 'translate(-50%, -22px) scale(1)' }
+        ], { duration: 900, delay: act.delay, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'backwards' }));
+      }
+    }
+    playTurn(events, durationMs) {
+      if (reducedMotion.matches || !this.state || !Array.isArray(events)) return;
+      this.pulseYard(events, durationMs);
+      const state = this.state, points = state.positions.map(center);
+      const played = events.filter(event => event.slot >= 0 || event.kind === 'damage');
+      if (!played.length) return;
+      // Machines fire in execution order across most of the turn interval.
+      const step = Math.min(220, durationMs * 0.85 / played.length);
+      played.forEach((event, index) => {
+        const delay = index * step, machineId = event.slot >= 0 ? state.slots[event.slot] : null;
+        const color = COLORS[machineId] || '#e9e1b8';
+        const label = floatLabel(event);
+        const float = document.createElement('span');
+        float.className = 'map-float float-' + (event.slot < 0 ? 'basic' : label.tone);
+        float.dataset.fxSlot = event.slot; float.dataset.fxKind = event.kind;
+        float.textContent = label.text;
+        float.style.setProperty('--fx-color', color);
+        const at = event.slot >= 0 ? points[event.slot] : { x: 880, y: 250 };
+        float.style.left = (at.x / 960 * 100) + '%'; float.style.top = (at.y / 560 * 100) + '%';
+        this.floats.append(float);
+        settle(float, float.animate([
+          { opacity: 0, transform: 'translate(-50%, -30%) scale(.7)' },
+          { opacity: 1, transform: 'translate(-50%, -90%) scale(1.08)', offset: .25 },
+          { opacity: 0, transform: 'translate(-50%, -190%) scale(1)' }
+        ], { duration: event.slot < 0 ? 900 : 760, delay, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'backwards' }));
+        if (event.slot < 0) return;
+        const tile = this.buttons[state.positions[event.slot].y * 12 + state.positions[event.slot].x];
+        tile.animate(event.kind === 'idle' ? [
+          { transform: 'translateX(0)', filter: 'grayscale(0)' }, { transform: 'translateX(-3px)', filter: 'grayscale(1)', offset: .25 },
+          { transform: 'translateX(3px)', filter: 'grayscale(1)', offset: .6 }, { transform: 'translateX(0)', filter: 'grayscale(0)' }
+        ] : [
+          { transform: 'scale(1)', filter: 'drop-shadow(0 0 0 ' + color + ')' },
+          { transform: 'scale(1.14)', filter: 'drop-shadow(0 0 9px ' + color + ')', offset: .35 },
+          { transform: 'scale(1)', filter: 'drop-shadow(0 0 0 ' + color + ')' }
+        ], { duration: 380, delay, easing: 'ease-out' });
+        const next = points[event.slot + 1];
+        if (!TOKEN_KINDS.includes(event.kind) || !next) return;
+        // The token follows the belt's horizontal-then-vertical routing.
+        const start = points[event.slot], run = Math.abs(next.x - start.x), drop = Math.abs(next.y - start.y);
+        const token = document.createElementNS(NS, 'circle');
+        token.setAttribute('class', 'map-token'); token.setAttribute('r', '7'); token.setAttribute('fill', color);
+        token.style.setProperty('--fx-color', color);
+        this.fx.append(token);
+        settle(token, token.animate([
+          { transform: `translate(${start.x}px, ${start.y}px)`, opacity: 0 },
+          { transform: `translate(${start.x}px, ${start.y}px)`, opacity: 1, offset: .05 },
+          { transform: `translate(${next.x}px, ${start.y}px)`, opacity: 1, offset: run + drop ? .05 + .9 * run / (run + drop) : .5 },
+          { transform: `translate(${next.x}px, ${next.y}px)`, opacity: 0 }
+        ], { duration: Math.max(320, Math.min(640, step * 2.4)), delay: delay + 80, easing: 'ease-in-out', fill: 'backwards' }));
+      });
+      this.fxUntil = Date.now() + durationMs;
+    }
+    showResult(info) {
+      // A banner waits for the final turn's timeline; a restored report shows at once.
+      if (!info) { clearTimeout(this.resultTimer); this.resultTimer = null; this.resultShown = false; this.result.hidden = true; return; }
+      this.result.querySelector('.map-result-title').textContent = info.title;
+      this.result.querySelector('.map-result-reward').textContent = info.reward;
+      this.result.querySelector('#map-result-action').textContent = info.action;
+      this.result.querySelector('#map-result-report').textContent = info.report;
+      this.result.classList.toggle('lost', !info.win);
+      if (this.resultShown || this.resultTimer) return;
+      const reveal = () => { this.resultTimer = null; this.resultShown = true; this.result.hidden = false; };
+      const wait = reducedMotion.matches ? 0 : this.fxUntil - Date.now();
+      if (wait > 0) this.resultTimer = setTimeout(reveal, wait); else reveal();
+    }
+    renderLinks(state, points = state.positions.map(center), links = this.engine.getSynergies?.(state) || []) {
+      // Belts trace production order; during a drag the points follow the cursor.
       this.belts.replaceChildren();
-      state.positions.slice(0, -1).forEach((pos, i) => {
-        const next = state.positions[i + 1];
-        const sx = pos.x * 80 + 40, sy = pos.y * 80 + 44;
-        const ex = next.x * 80 + 40, ey = next.y * 80 + 44;
-        const d = 'M' + sx + ' ' + sy + ' H' + ex + ' V' + ey;
+      points.slice(0, -1).forEach((start, i) => {
+        const end = points[i + 1];
+        const d = 'M' + start.x + ' ' + start.y + ' H' + end.x + ' V' + end.y;
         for (const cls of ['belt-edge', 'belt-base', 'belt-flow']) {
           const path = document.createElementNS(NS, 'path');
           path.setAttribute('d', d); path.setAttribute('class', cls); this.belts.append(path);
         }
       });
-      this.renderSynergies(state, synergies);
-      const labels = this.container.querySelector('.map-zone-labels');
-      labels.replaceChildren();
-      (sector?.lanes || []).forEach((lane, i) => {
-        const label = document.createElement('span');
-        label.textContent = ['A', 'B', 'C'][i] + ' / ' + t(lane.name);
-        labels.append(label);
-      });
-      this.refreshTooltip();
+      this.renderSynergies(points, links);
     }
-    renderSynergies(state, links) {
+    renderSynergies(points, links) {
       this.synergies.replaceChildren();
       const colors = { energy: '#f2cb79', clone: '#83e5b4', attack: '#f28c70' };
       const names = { energy: '에너지 연결', clone: '복제 연결', attack: '공격 연결' };
@@ -293,13 +493,11 @@
       }
       this.synergies.append(defs);
       for (const link of links) {
-        const from = state.positions[link.from], to = state.positions[link.to];
+        const from = points[link.from], to = points[link.to];
         const dx = to.x - from.x, dy = to.y - from.y;
         const length = Math.hypot(dx, dy) || 1;
-        const sx = from.x * 80 + 40 + dx / length * 23;
-        const sy = from.y * 80 + 44 + dy / length * 23;
-        const ex = to.x * 80 + 40 - dx / length * 27;
-        const ey = to.y * 80 + 44 - dy / length * 27;
+        const sx = round(from.x + dx / length * 23), sy = round(from.y + dy / length * 23);
+        const ex = round(to.x - dx / length * 27), ey = round(to.y - dy / length * 27);
         const d = link.via === 'connector' ? `M${sx} ${sy} Q${(sx + ex) / 2} ${Math.max(16, Math.min(sy, ey) - 64)} ${ex} ${ey}` : `M${sx} ${sy} L${ex} ${ey}`;
         const path = document.createElementNS(NS, 'path');
         path.setAttribute('d', d);

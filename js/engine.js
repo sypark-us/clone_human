@@ -21,17 +21,17 @@
   }
 
   const MODULES = freeze({
-    mine: { id: 'mine', name: '채굴기', description: '매 턴 에너지 +4. 광맥 구역에서 추가 생산.', kind: 'energy' },
+    mine: { id: 'mine', name: '채굴기', description: '매 턴 에너지 +2. 광맥 구역에서 추가 생산.', kind: 'energy' },
     clone: { id: 'clone', name: '복제 배양기', description: '에너지 4 → 병사 2명. 배양 구역에서 +1명.', kind: 'clone' },
-    soldier: { id: 'soldier', name: '훈련소', description: '에너지 3 → 병사 1명.', kind: 'clone' },
-    echo: { id: 'echo', name: '시간 복제기', description: '바로 앞 생산 모듈을 2회 추가 실행. 증폭기와 반응 모듈은 복제하지 않음.', kind: 'chain' },
+    soldier: { id: 'soldier', name: '훈련소', description: '에너지 2 → 병사 2명.', kind: 'clone' },
+    echo: { id: 'echo', name: '시간 복제기', description: '바로 앞 생산 모듈을 3회 추가 실행. 증폭기와 반응 모듈은 복제하지 않음.', kind: 'chain' },
     boost: { id: 'boost', name: '증폭기', description: '바로 앞 생산 모듈을 1회 추가 실행. 증폭기와 반응 모듈은 복제하지 않음.', kind: 'chain' },
-    bomb: { id: 'bomb', name: '자폭 발사대', description: '병사 최대 2명 소비. 병사 1명당 피해 14.', kind: 'attack' },
+    bomb: { id: 'bomb', name: '자폭 발사대', description: '병사 1명 소비. 피해 18 + 공격력 × 2.', kind: 'attack' },
     recycle: { id: 'recycle', name: '회수기', description: '코어 또는 방어막에 피해를 줄 때마다 에너지 +2.', kind: 'energy' },
-    mutation: { id: 'mutation', name: '변이 연구소', description: '에너지 5 → 병사당 공격력 영구 +2.', kind: 'clone' },
+    mutation: { id: 'mutation', name: '변이 연구소', description: '에너지 5 → 병사당 공격력 영구 +1.', kind: 'clone' },
     onclone: { id: 'onclone', name: '복제 반응기', description: '복제·훈련·처치 복제 시 새 병사 수 × 공격력만큼 추가 공격.', kind: 'attack' },
-    onkill: { id: 'onkill', name: '처치 회수기', description: '적 코어 처치 시 에너지 +8. 전투당 한 번.', kind: 'energy' },
-    autoclone: { id: 'autoclone', name: '자동 복제기', description: '적 코어 처치 시 병사 +2. 복제 반응도 발동.', kind: 'clone' },
+    onkill: { id: 'onkill', name: '처치 회수기', description: '적 코어 체력이 처음 절반 이하가 될 때와 처치 시 각각 에너지 +10.', kind: 'energy' },
+    autoclone: { id: 'autoclone', name: '자동 복제기', description: '적 코어 체력이 처음 절반 이하가 될 때와 처치 시 각각 병사 +2. 복제 반응도 발동.', kind: 'clone' },
     revive: { id: 'revive', name: '재생 장치', description: '자폭이 발동할 때마다 병사 1명 복귀. 복제 반응은 발동하지 않음.', kind: 'clone' }
   });
   const LOADOUTS = freeze([
@@ -69,15 +69,18 @@
       { name: '동력 핵심 · 채굴 +4', kind: 'mine', value: 4, description: '이 구역의 채굴기는 실행마다 에너지 +4.' }
     ] }
   ]);
+  // Safety for pay: normal is the long, half-paid route; rush and defense pay
+  // double, rush with a shorter limit and defense with harder retaliation.
   const OBJECTIVES = freeze({
-    normal: { id: 'normal', name: '코어 정복', description: '12턴 안에 격파. 에너지 +3과 속도 보너스.', limit: 12, reward: 3 },
-    rush: { id: 'rush', name: '긴급 돌파', description: '8턴 안에 격파. 에너지 +12와 속도 보너스.', limit: 8, reward: 12 },
-    survive: { id: 'survive', name: '방어선 돌파', description: '병사 손실 +1. 12턴 안에 격파하면 에너지 +10과 속도 보너스. 빠른 격파도 성공.', limit: 12, reward: 10 }
+    normal: { id: 'normal', name: '코어 정복', description: '12턴 안에 격파. 에너지 +6과 속도 보너스.', limit: 12, reward: 6, losses: 0 },
+    rush: { id: 'rush', name: '긴급 돌파', description: '8턴 안에 격파. 에너지 +12와 속도 보너스.', limit: 8, reward: 12, losses: 0 },
+    survive: { id: 'survive', name: '방어선 돌파', description: '병사 손실 +2. 12턴 안에 격파하면 에너지 +12와 속도 보너스. 빠른 격파도 성공.', limit: 12, reward: 12, losses: 2 }
   });
+  // Prices come from getUpgradeCost: each level costs half a base more than the last.
   const UPGRADES = freeze([
-    { id: 'power', name: '발전기 확장', description: '단계마다 매 턴 에너지 +2.', cost: 12, maxLevel: 3 },
-    { id: 'training', name: '복제 배양조', description: '단계마다 매 턴 병사 +1. 복제 반응은 발동하지 않음.', cost: 12, maxLevel: 3 },
-    { id: 'fort', name: '방어벽 증설', description: '단계마다 턴당 병사 손실 -1.', cost: 12, maxLevel: 3 }
+    { id: 'power', name: '발전기 확장', description: '단계마다 매 턴 에너지 +2.', baseCost: 12, maxLevel: 3 },
+    { id: 'training', name: '복제 배양조', description: '단계마다 매 턴 병사 +1. 복제 반응은 발동하지 않음.', baseCost: 12, maxLevel: 3 },
+    { id: 'fort', name: '방어벽 증설', description: '단계마다 턴당 병사 손실 -1.', baseCost: 12, maxLevel: 3 }
   ]);
   const ENEMIES = freeze({
     standard: { id: 'standard', name: '감시 코어', description: '기본 전투 패턴. 생산망을 시험하세요.' },
@@ -93,16 +96,18 @@
   const ACTIVE = ['mine', 'clone', 'soldier', 'mutation', 'bomb'];
   const PRODUCERS = ['clone', 'soldier'];
   const DEFENDERS = ['clone', 'soldier', 'revive'];
-  const WAVE_HP = [35, 90, 180, 330, 560, 900, 1400, 2150];
+  const WAVE_HP = [160, 320, 460, 600, 680, 840, 980, 1080];
+  // Saves from before the rebalance keep their wave HP until the next battle reset.
+  const LEGACY_WAVE_HP = [35, 90, 180, 330, 560, 900, 1400, 2150];
   const emptyMetrics = () => Object.fromEntries(METRIC_IDS.map(id => [id, { activations: 0, damage: 0, clones: 0, energy: 0 }]));
   const preparing = state => !!state && state.phase === 'prepare';
   const integer = (value, min, max) => Number.isSafeInteger(value) && value >= min && value <= max;
 
   const MACHINE_STATS = freeze({
-    mine: { energy: [4, 6, 8] }, clone: { clones: [2, 3, 4] }, soldier: { clones: [1, 2, 3] },
-    mutation: { attack: [2, 3, 4] }, bomb: { damage: [14, 18, 22] },
-    echo: { repeats: [2, 3, 4] }, boost: { repeats: [1, 2, 3] }, recycle: { energy: [2, 3, 4] },
-    onclone: { multiplier: [1, 1.25, 1.5] }, onkill: { energy: [8, 12, 16] },
+    mine: { energy: [2, 4, 6] }, clone: { cost: [4, 4, 4], clones: [2, 3, 4] }, soldier: { cost: [2, 2, 2], clones: [2, 3, 4] },
+    mutation: { cost: [5, 5, 5], attack: [1, 2, 3] }, bomb: { used: [1, 1, 1], damage: [18, 22, 26], perAttack: [2, 2, 2] },
+    echo: { repeats: [3, 4, 5] }, boost: { repeats: [1, 2, 3] }, recycle: { energy: [2, 3, 4] },
+    onclone: { multiplier: [1, 1.25, 1.5] }, onkill: { energy: [10, 13, 16] },
     autoclone: { clones: [2, 3, 4] }, revive: { clones: [1, 2, 3] }
   });
   function getMachineLevel(state, slot) {
@@ -189,6 +194,17 @@
     const lane = SECTOR_BY_ID[state.sectorId].lanes[Math.floor(state.positions[slot].x / 4)];
     return lane.kind === kind ? lane.value : 0;
   }
+  // Lane kinds that change a module's output, one per bonus() call site:
+  // mine, clone (clone only), mutation, recycle and bomb read their own kind;
+  // bomb, onclone and the basic attack (armyMultiplier, via PRODUCERS) read
+  // 'attack'; getBattlePreview's loss reduction (DEFENDERS) reads 'defense'.
+  function terrainKinds(id) {
+    const kinds = [];
+    if (['mine', 'clone', 'mutation', 'recycle', 'bomb'].includes(id)) kinds.push(id);
+    if (id === 'bomb' || id === 'onclone' || PRODUCERS.includes(id)) kinds.push('attack');
+    if (DEFENDERS.includes(id)) kinds.push('defense');
+    return kinds;
+  }
   function armyMultiplier(state) {
     return state.slots.reduce((value, id, slot) => PRODUCERS.includes(id) ? Math.max(value, bonus(state, 'attack', slot)) : value, 1);
   }
@@ -274,7 +290,7 @@
   function getBattlePreview(state) {
     const maxHp = Math.round(WAVE_HP[state.wave - 1] * (state.enemyId === 'swarm' ? 0.75 : 1));
     const defense = state.slots.reduce((value, id, slot) => value + (DEFENDERS.includes(id) ? bonus(state, 'defense', slot) : 0), 0);
-    const attack = Math.max(0, Math.ceil(state.wave * 0.65) + (state.enemyId === 'swarm' ? 2 : 0) + (state.objectiveId === 'survive' ? 1 : 0) - state.upgrades.fort - defense);
+    const attack = Math.max(0, Math.ceil(state.wave * 0.5) + (state.enemyId === 'swarm' ? 2 : 0) + OBJECTIVES[state.objectiveId].losses - state.upgrades.fort - defense);
     if (state.phase !== 'prepare') return { hp: state.hp, maxHp: state.maxHp, shield: state.shield, attack: state.enemyAttack, limit: OBJECTIVES[state.objectiveId].limit };
     return { hp: maxHp, maxHp, shield: state.wave >= 4 ? state.wave * 4 : 0, attack, limit: OBJECTIVES[state.objectiveId].limit };
   }
@@ -299,7 +315,7 @@
       version: 2, seed, rngState: seed, loadoutId: loadout.id, phase: 'prepare', wave: 1, connectors: [],
       energy: loadout.energy, units: loadout.units, attack: loadout.attack,
       slots: [...loadout.slots, ...Array(8).fill(null)].slice(0, 8),
-      positions: [{ x: 1, y: 2 }, { x: 5, y: 2 }, { x: 9, y: 2 }, { x: 10, y: 4 }, { x: 6, y: 4 }, { x: 2, y: 4 }, { x: 2, y: 5 }, { x: 6, y: 5 }],
+      positions: [{ x: 1, y: 2 }, { x: 5, y: 2 }, { x: 9, y: 2 }, { x: 2, y: 4 }, { x: 6, y: 4 }, { x: 10, y: 4 }, { x: 2, y: 5 }, { x: 6, y: 5 }],
       selectedSlot: loadout.slots.length, needsReward: true, offers: [], routes: [], routePending: true,
       sectorId: SECTORS[0].id, objectiveId: 'normal', enemyId: 'standard',
       upgrades: { power: 0, training: 0, fort: 0 }, turn: 0, hp: 35, maxHp: 35, shield: 0, enemyAttack: 1,
@@ -332,12 +348,25 @@
     state.selectedSlot = next;
     return state;
   }
+  function sortPlots(state) {
+    // Production order is map reading order (top row first, left to right), so
+    // a move renumbers plots. Levels and connector endpoints follow machines.
+    const order = state.positions.map((_, slot) => slot).sort((a, b) => state.positions[a].y - state.positions[b].y || state.positions[a].x - state.positions[b].x);
+    const renumber = [];
+    order.forEach((slot, next) => { renumber[slot] = next; });
+    const pick = list => order.map(slot => list[slot]);
+    state.slots = pick(state.slots); state.positions = pick(state.positions);
+    if (state.version === 3) state.machineLevels = pick(state.machineLevels);
+    if ([2, 3].includes(state.version)) state.connectors = state.connectors.map(link => ({ from: renumber[link.from], to: renumber[link.to] }));
+    state.selectedSlot = renumber[state.selectedSlot];
+  }
   function relocateSlot(state, index, x, y) {
     if (!preparing(state) || !integer(index, 0, 7) || !integer(x, 0, 11) || !integer(y, 0, 6)) return state;
     const occupied = state.positions.findIndex(position => position.x === x && position.y === y);
     if (occupied === index) return state;
     if (occupied >= 0) state.positions[occupied] = state.positions[index];
     state.positions[index] = { x, y };
+    sortPlots(state);
     return state;
   }
   function chooseRoute(state, index) {
@@ -355,10 +384,16 @@
     log(state, '모듈 다시 뽑기: 에너지 -6.');
     return state;
   }
-  function buyUpgrade(state, id) {
+  // Price of the next level (12, 18, then 24 E), or null at the cap.
+  function getUpgradeCost(state, id) {
     const upgrade = UPGRADES.find(item => item.id === id);
-    if (!preparing(state) || !upgrade || state.energy < upgrade.cost || state.upgrades[id] >= upgrade.maxLevel) return state;
-    state.energy -= upgrade.cost;
+    if (!state || !state.upgrades || !upgrade || !integer(state.upgrades[id], 0, upgrade.maxLevel - 1)) return null;
+    return upgrade.baseCost * (state.upgrades[id] + 2) / 2;
+  }
+  function buyUpgrade(state, id) {
+    const upgrade = UPGRADES.find(item => item.id === id), cost = getUpgradeCost(state, id);
+    if (!preparing(state) || cost === null || state.energy < cost) return state;
+    state.energy -= cost;
     state.upgrades[id]++;
     log(state, upgrade.name + ' ' + state.upgrades[id] + '단계.');
     return state;
@@ -409,7 +444,8 @@
         const event = queue.shift();
         processed++;
         if (event.kind === 'clone') {
-          forModule('onclone', slot => {
+          // A dead core takes no damage, so a reaction here would only log and count a no-op.
+          if (state.hp > 0) forModule('onclone', slot => {
             activate('onclone', slot, '복제 반응 공격');
             damage(Math.round(event.amount * state.attack * stats[slot].multiplier * (bonus(state, 'attack', slot) || 1)), 'onclone', slot);
           });
@@ -422,6 +458,8 @@
           const absorbed = Math.min(state.shield, event.amount);
           state.shield -= absorbed;
           const dealt = Math.min(state.hp, event.amount - absorbed);
+          // HP never rises mid-battle, so the hit that crosses half happens at most once.
+          const crossedHalf = state.hp > state.maxHp / 2 && state.hp - dealt <= state.maxHp / 2;
           state.hp -= dealt;
           state.totalDamage += dealt;
           state.metrics[event.source].damage += dealt;
@@ -431,6 +469,7 @@
             activate('recycle', slot, '피해 회수: 에너지 +' + amount);
             gainEnergy(state, amount, 'recycle');
           });
+          if (crossedHalf) enqueue('kill', 1, event.source, event.slot);
           if (state.hp === 0 && dealt > 0) enqueue('kill', 1, event.source, event.slot);
         } else if (event.kind === 'kill') {
           forModule('onkill', slot => { activate('onkill', slot); gainEnergy(state, stats[slot].energy, 'onkill'); });
@@ -445,10 +484,11 @@
     function act(id, slot) {
       if (!id || (!ACTIVE.includes(id) && id !== 'echo' && id !== 'boost')) return;
       if (id === 'echo' || id === 'boost') {
-        activate(id, slot);
         const previous = state.slots[slot - 1];
+        const repeats = Math.max(0, stats[slot].repeats - (state.enemyId === 'disrupt' ? 1 : 0));
+        if (!repeats) { note(state, slot, 'idle', '시간 교란: 반복 없음'); return; }
+        activate(id, slot);
         if (ACTIVE.includes(previous)) {
-          const repeats = Math.max(0, stats[slot].repeats - (state.enemyId === 'disrupt' ? 1 : 0));
           for (let i = 0; i < repeats && state.hp > 0; i++) { act(previous, slot - 1); flush(); }
         }
         return;
@@ -456,22 +496,22 @@
       if (id === 'mine') {
         activate(id, slot); gainEnergy(state, stats[slot].energy + bonus(state, 'mine', slot), id);
       } else if (id === 'clone' || id === 'soldier') {
-        const cost = (id === 'clone' ? 4 : 3) + (state.enemyId === 'jam' ? 2 : 0) - synergies[slot].costReduction;
+        const cost = stats[slot].cost + (state.enemyId === 'jam' ? 2 : 0) - synergies[slot].costReduction;
         if (state.energy < cost) { note(state, slot, 'idle', '에너지 부족: ' + cost + ' 필요'); return; }
         activate(id, slot); state.energy -= cost;
         const amount = gainUnits(state, stats[slot].clones + (id === 'clone' ? bonus(state, 'clone', slot) : 0) + synergies[slot].clones, id);
         if (amount) enqueue('clone', amount, id, slot);
       } else if (id === 'mutation') {
-        const cost = 5 - synergies[slot].costReduction;
+        const cost = stats[slot].cost - synergies[slot].costReduction;
         if (state.energy < cost) { note(state, slot, 'idle', '에너지 부족: ' + cost + ' 필요'); return; }
         activate(id, slot); state.energy -= cost;
         state.attack = Math.min(MAX_ATTACK, state.attack + stats[slot].attack + bonus(state, 'mutation', slot));
-      } else if (id === 'bomb' && state.units > 0) {
+      } else if (id === 'bomb' && state.units >= stats[slot].used) {
         activate(id, slot);
-        const used = Math.min(2, state.units);
-        state.units -= used;
-        damage(Math.round(stats[slot].damage * used * (state.enemyId === 'armor' ? 0.4 : 1) * (bonus(state, 'bomb', slot) || 1) * (bonus(state, 'attack', slot) || 1) * synergies[slot].damageMultiplier), id, slot);
-        enqueue('bomb', used, id, slot);
+        // The blast grows with army attack.
+        state.units -= stats[slot].used;
+        damage(Math.round((stats[slot].damage + stats[slot].perAttack * state.attack) * (state.enemyId === 'armor' ? 0.4 : 1) * (bonus(state, 'bomb', slot) || 1) * (bonus(state, 'attack', slot) || 1) * synergies[slot].damageMultiplier), id, slot);
+        enqueue('bomb', stats[slot].used, id, slot);
       }
     }
 
@@ -508,10 +548,25 @@
     else if (state.turn >= OBJECTIVES[state.objectiveId].limit) finishBattle(state, false);
     return state;
   }
+  // Combat is deterministic (the RNG only rolls offers and routes), so the real
+  // battle is played out on a copy and its outcome is the forecast.
+  function getForecast(state) {
+    if (!canStart(state)) return null;
+    const fight = clone(state);
+    startBattle(fight);
+    for (let turn = 0; fight.phase === 'battle' && turn <= OBJECTIVES[fight.objectiveId].limit; turn++) tick(fight);
+    const win = fight.report.win;
+    return { win, turns: fight.report.turns, hpLeft: win ? 0 : fight.hp, damage: fight.report.damage };
+  }
   function nextWave(state) {
     if (!state || state.phase !== 'report' || !state.report || !state.report.win || state.wave >= 8) return state;
     state.wave++;
     state.phase = 'prepare';
+    // Half of the army and of the attack gained above the loadout carries over,
+    // so an early snowball cannot win every later wave by itself.
+    const base = LOADOUTS.find(loadout => loadout.id === state.loadoutId).attack;
+    state.units = Math.ceil(state.units / 2);
+    state.attack = Math.max(1, base + Math.floor((state.attack - base) / 2));
     gainUnits(state, 3);
     state.needsReward = true;
     const empty = state.slots.indexOf(null);
@@ -569,11 +624,11 @@
       if (!keys(value.upgrades, ['power', 'training', 'fort']) || !Object.values(value.upgrades).every(level => integer(level, 0, 3))) return false;
       const limit = OBJECTIVES[value.objectiveId].limit;
       if (!integer(value.turn, 0, limit) || !integer(value.maxHp, 1, MAX_RESOURCE) || !integer(value.hp, 0, value.maxHp) || !integer(value.shield, 0, MAX_RESOURCE) || !integer(value.enemyAttack, 0, 100)) return false;
-      if (value.maxHp !== Math.round(WAVE_HP[value.wave - 1] * (value.enemyId === 'swarm' ? 0.75 : 1))) return false;
+      if (![WAVE_HP, LEGACY_WAVE_HP].some(table => value.maxHp === Math.round(table[value.wave - 1] * (value.enemyId === 'swarm' ? 0.75 : 1)))) return false;
       if (!validMetrics(value.metrics) || !integer(value.totalDamage, 0, MAX_METRIC) || !integer(value.eventsTotal, 0, value.turn * EVENT_LIMIT) || !integer(value.chainPeak, 0, Math.min(EVENT_LIMIT, value.eventsTotal))) return false;
       if (!METRIC_IDS.every(id => value.metrics[id].activations <= value.turn * EVENT_LIMIT * 8 && value.metrics[id].energy <= value.metrics[id].activations * (value.version === 3 ? 16 : 10) && value.metrics[id].clones <= value.metrics[id].activations * (value.version === 3 ? 6 : id === 'clone' ? 4 : 3))) return false;
       const waveDamage = METRIC_IDS.reduce((sum, id) => sum + value.metrics[id].damage, 0);
-      if (waveDamage !== value.maxHp - value.hp || value.totalDamage < waveDamage || value.totalDamage > WAVE_HP.slice(0, value.wave - 1).reduce((sum, hp) => sum + hp, 0) + waveDamage) return false;
+      if (waveDamage !== value.maxHp - value.hp || value.totalDamage < waveDamage || value.totalDamage > WAVE_HP.slice(0, value.wave - 1).reduce((sum, hp, index) => sum + Math.max(hp, LEGACY_WAVE_HP[index]), 0) + waveDamage) return false;
       if (!Array.isArray(value.log) || value.log.length > LOG_LIMIT || !denseArray(value.log, value.log.length) || !value.log.every(validText)) return false;
       const eventKinds = [...MODULE_IDS, 'damage', 'idle', 'energy', 'drain', 'loss', 'shield'];
       if (!Array.isArray(value.lastTurn) || value.lastTurn.length > TURN_LOG_LIMIT || !denseArray(value.lastTurn, value.lastTurn.length) || !value.lastTurn.every(event => keys(event, ['slot', 'kind', 'text']) && integer(event.slot, -1, 7) && eventKinds.includes(event.kind) && validText(event.text))) return false;
@@ -589,5 +644,5 @@
     } catch (_) { return false; }
   }
 
-  return Object.freeze({ MODULES, LOADOUTS, SECTORS, OBJECTIVES, UPGRADES, ENEMIES, createRun, selectSlot, installModule, moveSlot, relocateSlot, chooseRoute, reroll, buyUpgrade, getMachineLevel, getModuleStats, getMachineUpgrade, upgradeMachine, startBattle, tick, nextWave, canStart, getBattlePreview, getHints, validateRun, getSynergies, getSynergyBonus, canConnectSlots, connectSlots, disconnectSlots, getTurnSummary });
+  return Object.freeze({ MODULES, LOADOUTS, SECTORS, OBJECTIVES, UPGRADES, ENEMIES, createRun, selectSlot, installModule, moveSlot, relocateSlot, chooseRoute, reroll, buyUpgrade, getUpgradeCost, getMachineLevel, getModuleStats, getMachineUpgrade, upgradeMachine, startBattle, tick, nextWave, canStart, getForecast, getBattlePreview, terrainKinds, getHints, validateRun, getSynergies, getSynergyBonus, canConnectSlots, connectSlots, disconnectSlots, getTurnSummary });
 });

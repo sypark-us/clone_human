@@ -20,16 +20,33 @@ test('right-click previews then purchases an individual upgrade and persists thr
   await page.setViewportSize({ width: 1280, height: 720 }); await resume(page);
   const before = await read(page), miner = cell(page, before.positions[0]);
   await miner.click({ button: 'right' }); await expect(popup(page)).toBeVisible();
-  await expect(popup(page)).toContainText('Lv.1 → Lv.2'); await expect(popup(page)).toContainText('+4 energy / turn');
-  await expect(popup(page)).toContainText('+6 energy / turn'); expect((await read(page)).energy).toBe(before.energy);
+  await expect(popup(page)).toContainText('Lv.1 → Lv.2'); await expect(popup(page)).toContainText('+2 energy / turn');
+  await expect(popup(page)).toContainText('+4 energy / turn'); expect((await read(page)).energy).toBe(before.energy);
   await popup(page).getByRole('button', { name: 'Upgrade · 12 E', exact: true }).click();
   const bought = await read(page); expect(bought.energy).toBe(0); expect(bought.machineLevels[0]).toBe(2); expect(E.validateRun(bought)).toBe(true);
   await expect(popup(page)).toBeHidden(); await expect(miner.locator('.machine-level')).toHaveText('Lv.2');
-  await miner.hover(); await expect(page.getByRole('tooltip')).toContainText('+6 energy / turn');
+  await miner.hover(); await expect(page.getByRole('tooltip')).toContainText('+4 energy / turn');
   await miner.dragTo(cell(page, before.positions[1]));
-  const moved = await read(page); expect(moved.machineLevels).toEqual(bought.machineLevels); expect(moved.positions[0]).toEqual(before.positions[1]);
+  const moved = await read(page); expect(moved.positions).toEqual(before.positions);
+  expect(moved.slots[1]).toBe(before.slots[0]); expect(moved.machineLevels.slice(0, 2)).toEqual([bought.machineLevels[1], bought.machineLevels[0]]);
   await page.reload(); await page.locator('#resume-button').click(); expect(await read(page)).toEqual(moved);
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('factory upgrade buttons show the engine price of the next level after each purchase', async ({ page }) => {
+  const run = E.createRun({ seed: 1 }); run.energy = 60; await resume(page, run);
+  const tab = page.locator('[data-layout-tab="upgrades"]'); if (await tab.isVisible()) await tab.click();
+  const price = page.locator('[data-upgrade="power"] .upgrade-price');
+  for (const expected of ['12 E', '18 E', '24 E']) {
+    const saved = await read(page);
+    expect(E.getUpgradeCost(saved, 'power') + ' E').toBe(expected);
+    await expect(price).toHaveText(expected);
+    await page.locator('[data-upgrade="power"]').click();
+  }
+  await expect(price).toHaveText('Max level');
+  const bought = await read(page); expect(bought.upgrades.power).toBe(3); expect(bought.energy).toBe(6); expect(E.validateRun(bought)).toBe(true);
+  await expect(page.locator('[data-upgrade="training"] .upgrade-price')).toHaveText('12 E');
+  await expect(page.locator('[data-upgrade="training"]')).toBeDisabled();
 });
 
 test('rack and keyboard shortcuts show the same menu, dismiss cleanly, and translate', async ({ page }) => {
@@ -74,7 +91,7 @@ test('open previews close for drag, scrolling and help without blocking existing
   await miner.click({ button: 'right' }); await expect(popup(page)).toBeVisible(); await page.locator('#help-button').click(); await expect(popup(page)).toBeHidden();
   await page.keyboard.press('Escape'); await miner.click({ button: 'right' });
   await miner.dragTo(cell(page, run.positions[1])); await expect(popup(page)).toBeHidden();
-  expect((await read(page)).positions[0]).toEqual(run.positions[1]);
+  expect((await read(page)).slots[1]).toBe(run.slots[0]);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('#slot-rack [data-slot="0"]').click({ button: 'right' }); await expect(popup(page)).toBeVisible();
   await page.evaluate(() => window.scrollBy(0, 120));
